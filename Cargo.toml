@@ -19,4 +19,8 @@ homepage = "https://github.com/Xion/cargo-contribute"
 repository = "https://github.com/Xion/cargo-contribute.git"
 
 [dependencies]
+exitcode = "1.1.2"
+futures = "0.1.17"
+hubcaps = "0.4.2"
 lazy_static = "0.2"
+tokio-core = "0.1.10"
