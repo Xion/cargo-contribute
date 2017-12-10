@@ -9,13 +9,13 @@ use std::env;
 use std::io;
 
 use ansi_term::{Colour, Style};
+use chrono::{Timelike, Utc};
 use isatty;
 use log::SetLoggerError;
 use slog::{self, DrainExt, FilterLevel, Level};
 use slog_envlogger::LogBuilder;
 use slog_stdlog;
 use slog_stream;
-use time;
 
 
 // Default logging level defined using the two enums used by slog.
@@ -143,16 +143,16 @@ impl slog_stream::Format for LogFormat {
 
 /// Format the timestamp part of a detailed log entry.
 fn format_log_time() -> String {
-    let utc_now = time::now().to_utc();
-    let mut logtime = format!("{}", utc_now.rfc3339());  // E.g.: 2012-02-22T14:53:18Z
+    let utc_now = Utc::now();
+    let mut logtime = format!("{}", utc_now.to_rfc3339());  // E.g.: 2012-02-22T14:53:18Z
 
     // Insert millisecond count before the Z.
-    let millis = utc_now.tm_nsec / NANOS_IN_MILLISEC;
+    let millis = utc_now.nanosecond() / NANOS_IN_MILLISEC;
     logtime.pop();
     format!("{}.{:04}Z", logtime, millis)
 }
 
-const NANOS_IN_MILLISEC: i32 = 1000000;
+const NANOS_IN_MILLISEC: u32 = 1000000;
 
 lazy_static! {
     /// Map of log levels to their ANSI terminal styles.

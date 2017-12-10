@@ -17,7 +17,6 @@
              extern crate slog_envlogger;
              extern crate slog_stdlog;
              extern crate slog_stream;
-             extern crate time;
              extern crate tokio_core;
 
 // `slog` must precede `log` in declarations here, because we want to simultaneously:
