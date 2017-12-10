@@ -21,6 +21,7 @@
              extern crate slog_stdlog;
              extern crate slog_stream;
              extern crate tokio_core;
+             extern crate toml;
 
 // `slog` must precede `log` in declarations here, because we want to simultaneously:
 // * use the standard `log` macros
@@ -30,6 +31,7 @@
 
 
 mod args;
+mod cargo_toml;
 mod crates_io;
 mod ext;
 mod logging;
@@ -78,6 +80,11 @@ fn main() {
     });
     let github = Github::new(USER_AGENT.to_owned(), None, &core.handle());
     core.run(futures::future::ok::<(), ()>(())).unwrap();
+
+    let deps = cargo_toml::list_dependency_names("./Cargo.toml").unwrap();
+    for dep in deps {
+        println!("{}", dep);
+    }
 }
 
 // Print an error that may occur while parsing arguments.
