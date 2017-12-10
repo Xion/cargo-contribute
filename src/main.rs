@@ -3,6 +3,7 @@
 //!
 
              extern crate ansi_term;
+             extern crate chrono;
 #[macro_use] extern crate clap;
              extern crate conv;
              extern crate exitcode;
@@ -11,6 +12,8 @@
              extern crate isatty;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate maplit;
+             extern crate serde;
+#[macro_use] extern crate serde_derive;
              extern crate slog_envlogger;
              extern crate slog_stdlog;
              extern crate slog_stream;
@@ -25,6 +28,7 @@
 
 
 mod args;
+mod crates_io;
 mod logging;
 
 
