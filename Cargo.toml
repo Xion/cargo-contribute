@@ -20,6 +20,8 @@ repository = "https://github.com/Xion/cargo-contribute.git"
 
 [dependencies]
 ansi_term = "0.9"
+clap = "2.26.0"
+conv = "0.3"
 exitcode = "1.1.2"
 futures = "0.1.17"
 hubcaps = "0.4.2"

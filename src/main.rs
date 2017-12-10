@@ -3,6 +3,8 @@
 //!
 
              extern crate ansi_term;
+#[macro_use] extern crate clap;
+             extern crate conv;
              extern crate exitcode;
              extern crate futures;
              extern crate hubcaps;
@@ -22,6 +24,7 @@
 #[macro_use] extern crate log;
 
 
+mod args;
 mod logging;
 
 
@@ -29,7 +32,10 @@ use std::borrow::Cow;
 use std::process::exit;
 
 use hubcaps::Github;
+use log::LogLevel::*;
 use tokio_core::reactor::Core;
+
+use args::ArgsError;
 
 
 lazy_static! {
@@ -51,8 +57,13 @@ lazy_static! {
 
 
 fn main() {
-    logging::init(0).unwrap();
-    info!("{} v{}", *NAME, VERSION.unwrap());
+    let opts = args::parse().unwrap_or_else(|e| {
+        print_args_error(e);
+        exit(exitcode::USAGE);
+    });
+
+    logging::init(opts.verbosity).unwrap();
+    log_signature();
 
     let mut core = Core::new().unwrap_or_else(|e| {
         error!("Failed to initialize Tokio core: {}", e);
@@ -60,4 +71,28 @@ fn main() {
     });
     let github = Github::new(USER_AGENT.to_owned(), None, &core.handle());
     core.run(futures::future::ok::<(), ()>(())).unwrap();
+}
+
+// Print an error that may occur while parsing arguments.
+fn print_args_error(e: ArgsError) {
+    match e {
+        ArgsError::Parse(ref e) => {
+            // In case of generic parse error,
+            // message provided by the clap library will be the usage string.
+            eprintln!("{}", e.message);
+        }
+        // e => {
+        //     eprintln!("Failed to parse arguments: {}", e);
+        // }
+    }
+}
+
+/// Log the program name, version, and other metadata.
+#[inline]
+fn log_signature() {
+    if log_enabled!(Info) {
+        let version = VERSION.map(|v| format!("v{}", v))
+            .unwrap_or_else(|| "<UNKNOWN VERSION>".into());
+        info!("{} {}", *NAME, version);
+    }
 }
