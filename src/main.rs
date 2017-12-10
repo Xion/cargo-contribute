@@ -11,6 +11,7 @@
              extern crate futures;
              extern crate hubcaps;
              extern crate hyper;
+             extern crate hyper_tls;
              extern crate isatty;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate maplit;
@@ -35,6 +36,7 @@ mod cargo_toml;
 mod crates_io;
 mod ext;
 mod logging;
+mod util;
 
 
 use std::borrow::Cow;
@@ -81,9 +83,16 @@ fn main() {
     let github = Github::new(USER_AGENT.to_owned(), None, &core.handle());
     core.run(futures::future::ok::<(), ()>(())).unwrap();
 
+    let http = util::https_client(&core.handle());
+    let client = crates_io::Client::with_http(&http);
     let deps = cargo_toml::list_dependency_names("./Cargo.toml").unwrap();
     for dep in deps {
-        println!("{}", dep);
+        // TODO: fetch all the crate metadata asynchronously
+        let crate_ = match core.run(client.lookup_crate(&dep)).unwrap() {
+            Some(c) => c,
+            None => continue,
+        };
+        println!("{} -> {:?}", dep, crate_.metadata.repo_url);
     }
 }
 

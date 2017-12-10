@@ -7,11 +7,13 @@ use chrono::{DateTime, Utc};
 use futures::{future, Future as StdFuture, IntoFuture};
 use hyper::{self, StatusCode, Uri};
 use hyper::client::{Connect, HttpConnector};
+use hyper_tls::HttpsConnector;
 use serde_json;
 use tokio_core::reactor::Handle;
 
 use ext::futures::{BoxFuture, FutureExt};
 use ext::hyper::BodyExt;
+use util::https_client;
 
 
 const API_ROOT: &'static str = "https://crates.io/api/v1/";
@@ -21,7 +23,7 @@ const API_ROOT: &'static str = "https://crates.io/api/v1/";
 #[derive(Debug, Deserialize)]
 pub struct Crate {
     #[serde(rename = "crate")]
-    metadata: Metadata,
+    pub metadata: Metadata,
 }
 
 /// Basic crate metadata.
@@ -31,33 +33,33 @@ pub struct Crate {
 #[derive(Debug, Deserialize)]
 pub struct Metadata {
     /// Crate identifier.
-    id: String,
+    pub id: String,
     /// Human-readable crate name.
-    name: String,
+    pub name: String,
     /// Human-readable crate description.
-    description: String,
+    pub description: String,
     /// When was the crate created.
-    created_at: DateTime<Utc>,
+    pub created_at: DateTime<Utc>,
     /// When was the crate last updated.
-    updated_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
     /// Keywords associated with the crate.
     #[serde(default)]
-    keywords: Vec<String>,
+    pub keywords: Vec<String>,
     /// Crate categories.
     #[serde(default)]
-    categories: Vec<String>,
+    pub categories: Vec<String>,
     /// Crate homepage, if any.
     #[serde(rename = "homepage")]
     #[serde(default)]
-    homepage_url: Option<String>,
+    pub homepage_url: Option<String>,
     /// Documentation URL.
     #[serde(rename = "documentation")]
     #[serde(default)]
-    docs_url: Option<String>,
+    pub docs_url: Option<String>,
     /// Repository URL.
     #[serde(rename = "repository")]
     #[serde(default)]
-    repo_url: Option<String>,
+    pub repo_url: Option<String>,
 }
 
 
@@ -72,6 +74,14 @@ impl<'c> Client<'c, HttpConnector> {
     pub fn new(handle: &Handle) -> Self {
         Client{
             http: Cow::Owned(hyper::Client::new(handle)),
+        }
+    }
+}
+impl<'c> Client<'c, HttpsConnector<HttpConnector>> {
+    #[inline]
+    pub fn new_tls(handle: &Handle) -> Self {
+        Client{
+            http: Cow::Owned(https_client(handle))
         }
     }
 }
