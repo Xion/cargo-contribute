@@ -2,11 +2,27 @@
 //! cargo-contribute
 //!
 
+             extern crate ansi_term;
              extern crate exitcode;
              extern crate futures;
              extern crate hubcaps;
+             extern crate isatty;
 #[macro_use] extern crate lazy_static;
+#[macro_use] extern crate maplit;
+             extern crate slog_envlogger;
+             extern crate slog_stdlog;
+             extern crate slog_stream;
+             extern crate time;
              extern crate tokio_core;
+
+// `slog` must precede `log` in declarations here, because we want to simultaneously:
+// * use the standard `log` macros
+// * be able to initialize the slog logger using slog macros like o!()
+#[macro_use] extern crate slog;
+#[macro_use] extern crate log;
+
+
+mod logging;
 
 
 use std::borrow::Cow;
@@ -35,10 +51,11 @@ lazy_static! {
 
 
 fn main() {
-    eprintln!("{} v{}", *NAME, VERSION.unwrap());
+    logging::init(0).unwrap();
+    info!("{} v{}", *NAME, VERSION.unwrap());
 
     let mut core = Core::new().unwrap_or_else(|e| {
-        eprintln!("Failed to initialize Tokio core: {}", e);
+        error!("Failed to initialize Tokio core: {}", e);
         exit(exitcode::TEMPFAIL);
     });
     let github = Github::new(USER_AGENT.to_owned(), None, &core.handle());
