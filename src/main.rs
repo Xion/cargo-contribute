@@ -41,10 +41,13 @@ mod util;
 
 
 use std::borrow::Cow;
+use std::error::Error;
 use std::process::exit;
 
 use futures::Stream;
 use hubcaps::Github;
+use hubcaps::search::{IssuesItem, SearchIssuesOptions};
+use hyper::client::Connect;
 use log::LogLevel::*;
 use tokio_core::reactor::{Core, Handle};
 
@@ -89,10 +92,17 @@ fn main() {
 
     let deps = cargo_toml::list_dependency_names("./Cargo.toml").unwrap();
     core.run(
-        crate_repositories(&handle, deps.iter().map(|d| d.as_str())).for_each(|repo| {
-            println!("{:?}", repo);
-            Ok(())
-        })
+        crate_repositories(&handle, deps.iter().map(|d| d.as_str()))
+            // TODO: limit the number of issues per single repo,
+            // or use some version of round-robin or random sampling
+            .map(|repo| repo_issues(&github, &repo)
+                .map_err(|e| Box::new(e) as Box<Error>))
+            .flatten().take(10)
+            .for_each(|issue| {
+                let (owner, project) = issue.repo_tuple();
+                println!("[{}/{}] #{}: {}", owner, project, issue.number, issue.title);
+                Ok(())
+            })
     ).unwrap();
 }
 
@@ -162,5 +172,17 @@ fn crate_repositories<'c, I>(
             .filter_map(|c| {
                 c.metadata.repo_url.as_ref().and_then(|url| GithubRepo::from_url(url))
             })
+    )
+}
+
+fn repo_issues<C: Clone + Connect>(
+    github: &Github<C>, repo: &GithubRepo
+) -> Box<futures::Stream<Item=IssuesItem, Error=hubcaps::Error>> {
+    debug!("Querying for issues in {:?}", repo);
+
+    // TODO: add label filters that signify the issues are "easy"
+    let query = format!("repo:{}/{}", repo.owner, repo.name);
+    Box::new(
+        github.search().issues().iter(query, &SearchIssuesOptions::default())
     )
 }
