@@ -23,6 +23,7 @@
              extern crate slog_stream;
              extern crate tokio_core;
              extern crate toml;
+             extern crate url;
 
 // `slog` must precede `log` in declarations here, because we want to simultaneously:
 // * use the standard `log` macros
@@ -42,9 +43,10 @@ mod util;
 use std::borrow::Cow;
 use std::process::exit;
 
+use futures::Stream;
 use hubcaps::Github;
 use log::LogLevel::*;
-use tokio_core::reactor::Core;
+use tokio_core::reactor::{Core, Handle};
 
 use args::ArgsError;
 
@@ -80,20 +82,18 @@ fn main() {
         error!("Failed to initialize Tokio core: {}", e);
         exit(exitcode::TEMPFAIL);
     });
-    let github = Github::new(USER_AGENT.to_owned(), None, &core.handle());
+    let handle = core.handle();
+
+    let github = Github::new(USER_AGENT.to_owned(), None, &handle);
     core.run(futures::future::ok::<(), ()>(())).unwrap();
 
-    let http = util::https_client(&core.handle());
-    let client = crates_io::Client::with_http(&http);
     let deps = cargo_toml::list_dependency_names("./Cargo.toml").unwrap();
-    for dep in deps {
-        // TODO: fetch all the crate metadata asynchronously
-        let crate_ = match core.run(client.lookup_crate(&dep)).unwrap() {
-            Some(c) => c,
-            None => continue,
-        };
-        println!("{} -> {:?}", dep, crate_.metadata.repo_url);
-    }
+    core.run(
+        crate_repositories(&handle, deps.iter().map(|d| d.as_str())).for_each(|repo| {
+            println!("{:?}", repo);
+            Ok(())
+        })
+    ).unwrap();
 }
 
 // Print an error that may occur while parsing arguments.
@@ -118,4 +118,49 @@ fn log_signature() {
             .unwrap_or_else(|| "<UNKNOWN VERSION>".into());
         info!("{} {}", *NAME, version);
     }
+}
+
+
+#[derive(Debug)]
+pub struct GithubRepo {
+    owner: String,
+    name: String,
+}
+
+impl GithubRepo {
+    #[inline]
+    pub fn new<O: ToString, N: ToString>(owner: O, name: N) -> Self {
+        GithubRepo {
+            owner: owner.to_string(),
+            name: name.to_string(),
+        }
+    }
+
+    pub fn from_url(repo_url: &str) -> Option<Self> {
+        let parsed = url::Url::parse(repo_url).ok()?;
+        if parsed.host() == Some(url::Host::Domain("github.com")) {
+            let segs = parsed.path_segments().map(|ps| ps.collect()).unwrap_or_else(Vec::new);
+            if segs.len() == 2 {
+                // github.com/$OWNER/$REPO
+                return Some(GithubRepo::new(segs[0], segs[1]));
+            }
+        }
+        None
+    }
+}
+
+fn crate_repositories<'c, I>(
+    handle: &Handle, crates: I
+) -> Box<futures::Stream<Item=GithubRepo, Error=crates_io::Error> + 'c>
+    where I: IntoIterator<Item=&'c str> + 'c
+{
+    let client = crates_io::Client::new_tls(handle);
+    Box::new(
+        futures::stream::iter_ok(crates)
+            .and_then(move |crate_| client.lookup_crate(crate_))
+            .filter_map(|opt_c| opt_c)
+            .filter_map(|c| {
+                c.metadata.repo_url.as_ref().and_then(|url| GithubRepo::from_url(url))
+            })
+    )
 }
