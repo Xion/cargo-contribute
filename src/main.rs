@@ -15,6 +15,7 @@
              extern crate isatty;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate maplit;
+             extern crate rand;
              extern crate serde;
 #[macro_use] extern crate serde_derive;
              extern crate serde_json;
@@ -40,6 +41,7 @@ mod util;
 
 
 use std::borrow::Cow;
+use std::path::Path;
 use std::process::exit;
 
 use futures::Stream;
@@ -76,15 +78,26 @@ fn main() {
     logging::init(opts.verbosity).unwrap();
     log_signature();
 
+    // TODO: add --manifest-path flag
+    let manifest_path = "./Cargo.toml";
+    if !Path::new(manifest_path).is_file() {
+        error!("Couldn't find crate manifest; make sure you are in a crate root directory.");
+        exit(exitcode::USAGE);
+    }
+
     let mut core = Core::new().unwrap_or_else(|e| {
         error!("Failed to initialize Tokio core: {}", e);
         exit(exitcode::TEMPFAIL);
     });
 
     let producer = issues::SuggestedIssuesProducer::new(&core.handle());
+    let issues = producer.suggest_issues(manifest_path).unwrap_or_else(|e| {
+        error!("Failed to suggest issues: {}", e);
+        exit(exitcode::IOERR);
+    });
     core.run(
-        producer.suggest_issues("./Cargo.toml")
-            .take(10)
+        issues
+            .take(10)  // TODO: -n flag
             .for_each(|issue| {
                 println!("[{}/{}] #{}: {}",
                     issue.repo.owner, issue.repo.name, issue.number, issue.title);

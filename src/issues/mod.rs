@@ -5,4 +5,4 @@ mod crates_io;
 mod model;
 mod producer;
 
-pub use self::producer::SuggestedIssuesProducer;
+pub use self::producer::{Error, SuggestedIssuesProducer};
