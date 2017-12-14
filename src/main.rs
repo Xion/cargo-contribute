@@ -33,23 +33,18 @@
 
 
 mod args;
-mod cargo_toml;
-mod crates_io;
 mod ext;
+mod issues;
 mod logging;
 mod util;
 
 
 use std::borrow::Cow;
-use std::error::Error;
 use std::process::exit;
 
 use futures::Stream;
-use hubcaps::Github;
-use hubcaps::search::{IssuesItem, SearchIssuesOptions};
-use hyper::client::Connect;
 use log::LogLevel::*;
-use tokio_core::reactor::{Core, Handle};
+use tokio_core::reactor::Core;
 
 use args::ArgsError;
 
@@ -85,22 +80,14 @@ fn main() {
         error!("Failed to initialize Tokio core: {}", e);
         exit(exitcode::TEMPFAIL);
     });
-    let handle = core.handle();
 
-    let github = Github::new(USER_AGENT.to_owned(), None, &handle);
-    core.run(futures::future::ok::<(), ()>(())).unwrap();
-
-    let deps = cargo_toml::list_dependency_names("./Cargo.toml").unwrap();
+    let producer = issues::SuggestedIssuesProducer::new(&core.handle());
     core.run(
-        crate_repositories(&handle, deps.iter().map(|d| d.as_str()))
-            // TODO: limit the number of issues per single repo,
-            // or use some version of round-robin or random sampling
-            .map(|repo| repo_issues(&github, &repo)
-                .map_err(|e| Box::new(e) as Box<Error>))
-            .flatten().take(10)
+        producer.suggest_issues("./Cargo.toml")
+            .take(10)
             .for_each(|issue| {
-                let (owner, project) = issue.repo_tuple();
-                println!("[{}/{}] #{}: {}", owner, project, issue.number, issue.title);
+                println!("[{}/{}] #{}: {}",
+                    issue.repo.owner, issue.repo.name, issue.number, issue.title);
                 Ok(())
             })
     ).unwrap();
@@ -128,61 +115,4 @@ fn log_signature() {
             .unwrap_or_else(|| "<UNKNOWN VERSION>".into());
         info!("{} {}", *NAME, version);
     }
-}
-
-
-#[derive(Debug)]
-pub struct GithubRepo {
-    owner: String,
-    name: String,
-}
-
-impl GithubRepo {
-    #[inline]
-    pub fn new<O: ToString, N: ToString>(owner: O, name: N) -> Self {
-        GithubRepo {
-            owner: owner.to_string(),
-            name: name.to_string(),
-        }
-    }
-
-    pub fn from_url(repo_url: &str) -> Option<Self> {
-        let parsed = url::Url::parse(repo_url).ok()?;
-        if parsed.host() == Some(url::Host::Domain("github.com")) {
-            let segs = parsed.path_segments().map(|ps| ps.collect()).unwrap_or_else(Vec::new);
-            if segs.len() == 2 {
-                // github.com/$OWNER/$REPO
-                return Some(GithubRepo::new(segs[0], segs[1]));
-            }
-        }
-        None
-    }
-}
-
-fn crate_repositories<'c, I>(
-    handle: &Handle, crates: I
-) -> Box<futures::Stream<Item=GithubRepo, Error=crates_io::Error> + 'c>
-    where I: IntoIterator<Item=&'c str> + 'c
-{
-    let client = crates_io::Client::new_tls(handle);
-    Box::new(
-        futures::stream::iter_ok(crates)
-            .and_then(move |crate_| client.lookup_crate(crate_))
-            .filter_map(|opt_c| opt_c)
-            .filter_map(|c| {
-                c.metadata.repo_url.as_ref().and_then(|url| GithubRepo::from_url(url))
-            })
-    )
-}
-
-fn repo_issues<C: Clone + Connect>(
-    github: &Github<C>, repo: &GithubRepo
-) -> Box<futures::Stream<Item=IssuesItem, Error=hubcaps::Error>> {
-    debug!("Querying for issues in {:?}", repo);
-
-    // TODO: add label filters that signify the issues are "easy"
-    let query = format!("repo:{}/{}", repo.owner, repo.name);
-    Box::new(
-        github.search().issues().iter(query, &SearchIssuesOptions::default())
-    )
 }

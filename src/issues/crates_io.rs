@@ -1,19 +1,17 @@
 //! Module for communicating with crates.io API.
 
-use std::borrow::Cow;
 use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
 use futures::{future, Future as StdFuture, IntoFuture};
 use hyper::{self, StatusCode, Uri};
 use hyper::client::{Connect, HttpConnector};
-use hyper_tls::HttpsConnector;
 use serde_json;
 use tokio_core::reactor::Handle;
 
 use ext::futures::{BoxFuture, FutureExt};
 use ext::hyper::BodyExt;
-use util::https_client;
+use util::{HttpsConnector, https_client};
 
 
 const API_ROOT: &'static str = "https://crates.io/api/v1/";
@@ -64,40 +62,35 @@ pub struct Metadata {
 
 
 /// Client for the crates.io API.
-#[derive(Debug)]
-pub struct Client<'c, C: Clone + 'c> {
-    http: Cow<'c, hyper::Client<C>>,
+#[derive(Clone, Debug)]
+pub struct Client<C: Clone> {
+    http: hyper::Client<C>,
 }
 
-impl<'c> Client<'c, HttpConnector> {
+impl Client<HttpConnector> {
     #[inline]
     pub fn new(handle: &Handle) -> Self {
-        Client{
-            http: Cow::Owned(hyper::Client::new(handle)),
-        }
+        Client::with_http(hyper::Client::new(handle))
     }
 }
-impl<'c> Client<'c, HttpsConnector<HttpConnector>> {
+impl Client<HttpsConnector> {
     #[inline]
     pub fn new_tls(handle: &Handle) -> Self {
-        Client{
-            http: Cow::Owned(https_client(handle))
-        }
+        Client::with_http(https_client(handle))
     }
 }
-impl<'c, C: Clone> Client<'c, C> {
+impl<C: Clone> Client<C> {
     #[inline]
-    pub fn with_http(http: &'c hyper::Client<C>) -> Self {
-        Client{
-            http: Cow::Borrowed(http),
-        }
+    pub fn with_http(http: hyper::Client<C>) -> Self {
+        Client{http}
     }
 }
 
-impl<'c, C: Clone + Connect> Client<'c, C> {
+impl<C: Clone + Connect> Client<C> {
     /// Lookup a crate by name, returning its metadata.
     /// Returns None if the crate couldn't be found
-    pub fn lookup_crate<'id>(&self, id: &'id str) -> Future<'id, Option<Crate>> {
+    pub fn lookup_crate<I: ToString>(&self, id: I) -> Future<Option<Crate>> {
+        let id = id.to_string();
         trace!("Looking up crate `{}` on crates.io...", id);
         let url = Uri::from_str(&format!("{}/crates/{}", API_ROOT, id)).unwrap();
         self.http.get(url).map_err(Error::Http).and_then(move |resp| {
@@ -125,7 +118,7 @@ impl<'c, C: Clone + Connect> Client<'c, C> {
 
 
 /// Future type returned by Client methods.
-pub type Future<'f, T> = BoxFuture<'f, T, Error>;
+pub type Future<T> = BoxFuture<'static, T, Error>;
 
 /// Error when talking to crates.io.
 #[derive(Debug, Error)]
