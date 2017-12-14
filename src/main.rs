@@ -7,6 +7,7 @@
 #[macro_use] extern crate clap;
              extern crate conv;
 #[macro_use] extern crate derive_error;
+#[macro_use] extern crate enum_derive;
              extern crate exitcode;
              extern crate futures;
              extern crate hubcaps;
@@ -15,6 +16,7 @@
              extern crate isatty;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate maplit;
+#[macro_use] extern crate macro_attr;
              extern crate rand;
              extern crate serde;
 #[macro_use] extern crate serde_derive;
@@ -41,6 +43,7 @@ mod util;
 
 
 use std::borrow::Cow;
+use std::error::Error;
 use std::path::Path;
 use std::process::exit;
 
@@ -78,10 +81,14 @@ fn main() {
     logging::init(opts.verbosity).unwrap();
     log_signature();
 
-    // TODO: add --manifest-path flag
-    let manifest_path = "./Cargo.toml";
-    if !Path::new(manifest_path).is_file() {
-        error!("Couldn't find crate manifest; make sure you are in a crate root directory.");
+    let manifest_path = opts.manifest_path.as_ref()
+        .map(|p| p as &Path).unwrap_or(Path::new("./Cargo.toml"));
+    if !manifest_path.is_file() {
+        error!("Couldn't find crate manifest {}.",
+            match opts.manifest_path {
+                Some(ref path) => format!("under {}", path.display()),
+                None => format!("; make sure you're in the crate root directory."),
+            });
         exit(exitcode::USAGE);
     }
 
@@ -91,18 +98,20 @@ fn main() {
     });
 
     let producer = issues::SuggestedIssuesProducer::new(&core.handle());
-    let issues = producer.suggest_issues(manifest_path).unwrap_or_else(|e| {
+    let mut issues = producer.suggest_issues(manifest_path).unwrap_or_else(|e| {
         error!("Failed to suggest issues: {}", e);
         exit(exitcode::IOERR);
     });
+    if let Some(count) = opts.count {
+        issues = Box::new(issues.take(count as u64));
+    }
+
     core.run(
-        issues
-            .take(10)  // TODO: -n flag
-            .for_each(|issue| {
-                println!("[{}/{}] #{}: {}",
-                    issue.repo.owner, issue.repo.name, issue.number, issue.title);
-                Ok(())
-            })
+        issues.for_each(|issue| {
+            println!("[{}/{}] #{}: {}",
+                issue.repo.owner, issue.repo.name, issue.number, issue.title);
+            Ok(())
+        })
     ).unwrap();
 }
 
@@ -114,9 +123,10 @@ fn print_args_error(e: ArgsError) {
             // message provided by the clap library will be the usage string.
             eprintln!("{}", e.message);
         }
-        // e => {
-        //     eprintln!("Failed to parse arguments: {}", e);
-        // }
+        e => {
+            eprintln!("Failed to parse arguments: {}",
+                e.cause().map(|c| format!("{}", c)).unwrap_or_else(|| "<unknown error>".into()));
+        }
     }
 }
 

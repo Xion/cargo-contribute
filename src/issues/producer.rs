@@ -74,6 +74,7 @@ impl SuggestedIssuesProducer {
         Ok(Box::new({
             let github = self.github.clone();
             repos.map(move |repo| repo_issues(&github, &repo).map_err(Error::GitHub))
+                // Yes, each cast and each turbofish is necessary here -_-
                 .fold(Box::new(stream::empty()) as Stream<IssuesItem>,
                     |acc, x| future::ok::<_, Error>(
                         Box::new(acc.select(x)) as Stream<IssuesItem>,

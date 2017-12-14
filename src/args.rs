@@ -5,6 +5,8 @@ use std::error::Error;
 use std::fmt;
 use std::ffi::OsString;
 use std::iter::IntoIterator;
+use std::num::ParseIntError;
+use std::path::PathBuf;
 
 use clap::{self, AppSettings, Arg, ArgMatches};
 use conv::TryFrom;
@@ -38,6 +40,13 @@ pub struct Options {
     /// Corresponds to the number of times the -v flag has been passed.
     /// If -q has been used instead, this will be negative.
     pub verbosity: isize,
+
+    /// Path to a crate manifest (Cargo.toml) to look at for [dependencies].
+    /// If omitted, we'll try to use one in the current directory.
+    pub manifest_path: Option<PathBuf>,
+    /// Maximum number of issues to yield.
+    /// If omitted, we'll keep searching for more indefinitely.
+    pub count: Option<usize>,
 }
 
 #[allow(dead_code)]
@@ -56,19 +65,24 @@ impl<'a> TryFrom<ArgMatches<'a>> for Options {
         let quiet_count = matches.occurrences_of(OPT_QUIET) as isize;
         let verbosity = verbose_count - quiet_count;
 
-        Ok(Options{verbosity})
+        let manifest_path = matches.value_of(OPT_MANIFEST_PATH).map(PathBuf::from);
+        let count = match matches.value_of(OPT_COUNT) {
+            Some(c) => Some(c.parse()?),
+            None => None,
+        };
+
+        Ok(Options{verbosity, manifest_path, count})
     }
 }
 
-/// Error that can occur while parsing of command line arguments.
-#[derive(Debug)]
-pub enum ArgsError {
-    /// General when parsing the arguments.
-    Parse(clap::Error),
-}
-impl From<clap::Error> for ArgsError {
-    fn from(input: clap::Error) -> Self {
-        ArgsError::Parse(input)
+macro_attr! {
+    /// Error that can occur while parsing of command line arguments.
+    #[derive(Debug, EnumFromInner!)]
+    pub enum ArgsError {
+        /// General when parsing the arguments.
+        Parse(clap::Error),
+        /// Error when parsing --count flag.
+        Count(ParseIntError),
     }
 }
 impl Error for ArgsError {
@@ -76,6 +90,7 @@ impl Error for ArgsError {
     fn cause(&self) -> Option<&Error> {
         match self {
             &ArgsError::Parse(ref e) => Some(e),
+            &ArgsError::Count(ref e) => Some(e),
         }
     }
 }
@@ -83,6 +98,7 @@ impl fmt::Display for ArgsError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match self {
             &ArgsError::Parse(ref e) => write!(fmt, "parse error: {}", e),
+            &ArgsError::Count(ref e) => write!(fmt, "invalid --count value: {}", e),
         }
     }
 }
@@ -99,6 +115,8 @@ lazy_static! {
     static ref ABOUT: &'static str = option_env!("CARGO_PKG_DESCRIPTION").unwrap_or("");
 }
 
+const OPT_MANIFEST_PATH: &'static str = "manifest-path";
+const OPT_COUNT: &'static str = "count";
 const OPT_VERBOSE: &'static str = "verbose";
 const OPT_QUIET: &'static str = "quiet";
 
@@ -119,6 +137,20 @@ fn create_parser<'p>() -> Parser<'p> {
         .setting(AppSettings::DontCollapseArgsInUsage)
         .setting(AppSettings::DeriveDisplayOrder)
         .setting(AppSettings::ColorNever)
+
+        .arg(Arg::with_name(OPT_MANIFEST_PATH)
+            .long("manifest-path")
+            .takes_value(true)
+            .multiple(false)
+            .value_name("PATH")
+            .help("Path to a crate manifest to look through"))
+
+        .arg(Arg::with_name(OPT_COUNT)
+            .long("count").short("n")
+            .takes_value(true)
+            .multiple(false)
+            .value_name("N")
+            .help("Maximum number of suggested issues to yield"))
 
         // Verbosity flags.
         .arg(Arg::with_name(OPT_VERBOSE)
