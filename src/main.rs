@@ -97,6 +97,7 @@ fn main() {
         exit(exitcode::TEMPFAIL);
     });
 
+    // TODO: command line option for providing Github credentials
     let producer = issues::SuggestedIssuesProducer::new(&core.handle());
     let mut issues = producer.suggest_issues(manifest_path).unwrap_or_else(|e| {
         error!("Failed to suggest issues: {}", e);

@@ -73,7 +73,7 @@ impl SuggestedIssuesProducer {
         // (via this hideous amalgamation of fold() + flatten_stream()).
         Ok(Box::new({
             let github = self.github.clone();
-            repos.map(move |repo| repo_issues(&github, &repo).map_err(Error::GitHub))
+            repos.map(move |repo| repo_issues(&github, repo).map_err(Error::GitHub))
                 // Yes, each cast and each turbofish is necessary here -_-
                 .fold(Box::new(stream::empty()) as Stream<IssuesItem>,
                     |acc, x| future::ok::<_, Error>(
@@ -116,16 +116,32 @@ pub enum Error {
 
 /// Provide suggested issues specifically from given GitHub repo.
 fn repo_issues<C: Clone + Connect>(
-    github: &Github<C>, repo: &Repository
+    github: &Github<C>, repo: Repository
 ) -> Box<StdStream<Item=IssuesItem, Error=hubcaps::Error>> {
     debug!("Querying for issues in {:?}", repo);
+    let github = github.clone();
 
-    // TODO: check if the repo exists first, otherwise return an empty stream
-    // (right now it panics on an unwrap)
-
-    // TODO: add label filters that signify the issues are "easy"
-    let query = format!("repo:{}/{}", repo.owner, repo.name);
+    // Check if the repo exists first and return an empty stream if it doesn't.
+    // (otherwise we would panic on an unwrap inside the hubcaps crate).
+    let empty = Box::new(stream::empty()) as Box<StdStream<Item=IssuesItem, Error=hubcaps::Error>>;
     Box::new(
-        github.search().issues().iter(query, &SearchIssuesOptions::default())
+        github.repo(repo.owner.clone(), repo.name.clone()).get()
+            .then(move |result| Ok(match result {
+                Ok(gh_repo) => {
+                    if !gh_repo.has_issues {
+                        return Ok(empty);
+                    }
+                    // TODO: add label filters that signify the issues are "easy"
+                    let query = format!("repo:{}/{}", repo.owner, repo.name);
+                    Box::new(
+                        github.search().issues().iter(query, &SearchIssuesOptions::default())
+                    )
+                }
+                Err(e) => {
+                    warn!("Couldn't find repo {}/{} on GitHub: {}", repo.owner, repo.name, e);
+                    empty
+                }
+            }))
+        .flatten_stream()
     )
 }
