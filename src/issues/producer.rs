@@ -4,8 +4,10 @@ use std::fmt;
 use std::path::Path;
 
 use futures::{future, Future, stream, Stream as StdStream};
-use hubcaps::{self, Credentials, Github};
+use hubcaps::{self, Credentials, Error as HubcapsError, Github};
+use hubcaps::errors::ErrorKind;
 use hubcaps::search::{IssuesItem, SearchIssuesOptions};
+use hyper::StatusCode;
 use hyper::client::{Client as HyperClient, Connect};
 use rand::{Rng, thread_rng};
 use tokio_core::reactor::Handle;
@@ -131,33 +133,35 @@ const GITHUB_API_ROOT: &'static str = "https://api.github.com";
 /// Provide suggested issues specifically from given GitHub repo.
 fn repo_issues<C: Clone + Connect>(
     github: &Github<C>, repo: Repository
-) -> Box<StdStream<Item=IssuesItem, Error=hubcaps::Error>> {
+) -> Box<StdStream<Item=IssuesItem, Error=HubcapsError>> {
     let github = github.clone();
 
-    // Check if the repo exists first and return an empty stream if it doesn't.
-    // (otherwise we would panic on an unwrap inside the hubcaps crate).
-    let empty = Box::new(stream::empty()) as Box<StdStream<Item=IssuesItem, Error=hubcaps::Error>>;
+    // TODO: add label filters that signify the issues are "easy"
+    debug!("Querying for issues in {:?}", repo);
+    let query = format!("repo:{}/{}", repo.owner, repo.name);
     Box::new(
-        // TODO: just hit the github.com/$OWNER/$NAME URL with hyper,
-        // it won't count towards the rate limit
-        github.repo(repo.owner.clone(), repo.name.clone()).get()
-            .then(move |result| Ok(match result {
-                Ok(gh_repo) => {
-                    if !gh_repo.has_issues {
-                        return Ok(empty);
+        github.search().issues().iter(query, &SearchIssuesOptions::default())
+            // GitHub returns 422 Unprocessable Entity if the repo doesn't exist at all.
+            // This isn't really an error for us (since crate manifests can list invalid
+            // or outdated repos), so we terminate the stream early if it happens.
+            //
+            // (This termination is done by mapping the error to None
+            //  and using take_while() below).
+            .then(move |res| match res {
+                Ok(issue_item) => Ok(Some(issue_item)),
+                Err(HubcapsError(ErrorKind::Fault{ code, error }, _)) => {
+                    debug!("HTTP {} error for repository {}/{}: {:?}",
+                        code, repo.owner, repo.name, error);
+                    if code == StatusCode::UnprocessableEntity {
+                        warn!("Cannot access repository {}/{}: {}", repo.owner, repo.name, code);
+                        Ok(None)
+                    } else {
+                        // For other HTTP faults, reconstruct the original error.
+                        Err(HubcapsError::from_kind(ErrorKind::Fault{code, error}))
                     }
-                    // TODO: add label filters that signify the issues are "easy"
-                    debug!("Querying for issues in {:?}", repo);
-                    let query = format!("repo:{}/{}", repo.owner, repo.name);
-                    Box::new(
-                        github.search().issues().iter(query, &SearchIssuesOptions::default())
-                    )
                 }
-                Err(e) => {
-                    warn!("Couldn't find repo {}/{} on GitHub: {}", repo.owner, repo.name, e);
-                    empty
-                }
-            }))
-        .flatten_stream()
+                Err(e) => Err(e),
+            })
+            .take_while(|opt_ii| future::ok(opt_ii.is_some())).map(Option::unwrap)
     )
 }
