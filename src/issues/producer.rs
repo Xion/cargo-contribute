@@ -4,7 +4,7 @@ use std::fmt;
 use std::path::Path;
 
 use futures::{future, Future, stream, Stream as StdStream};
-use hubcaps::{self, Github};
+use hubcaps::{self, Credentials, Github};
 use hubcaps::search::{IssuesItem, SearchIssuesOptions};
 use hyper::client::{Client as HyperClient, Connect};
 use rand::{Rng, thread_rng};
@@ -37,14 +37,26 @@ impl SuggestedIssuesProducer {
     }
 
     #[inline]
-    pub fn with_http(http: HyperClient<HttpsConnector>) -> Self {
-        const API_ROOT: &'static str = "https://api.github.com";
+    pub fn with_github_token(token: &str, handle: &Handle) -> Self {
+        let http = https_client(handle);
         SuggestedIssuesProducer {
             crates_io: CratesIoClient::with_http(http.clone()),
             github: Github::custom(
-                API_ROOT, USER_AGENT.to_owned(), /* credentials */ None, http.clone()),
+                GITHUB_API_ROOT, USER_AGENT.to_owned(),
+                Some(Credentials::Token(token.to_owned())), http.clone()),
         }
     }
+
+    #[inline]
+    pub fn with_http(http: HyperClient<HttpsConnector>) -> Self {
+        SuggestedIssuesProducer {
+            crates_io: CratesIoClient::with_http(http.clone()),
+            github: Github::custom(
+                GITHUB_API_ROOT, USER_AGENT.to_owned(), /* credentials */ None, http.clone()),
+        }
+    }
+
+    // TODO: consider providing a builder
 }
 
 impl SuggestedIssuesProducer {
@@ -114,17 +126,20 @@ pub enum Error {
 }
 
 
+const GITHUB_API_ROOT: &'static str = "https://api.github.com";
+
 /// Provide suggested issues specifically from given GitHub repo.
 fn repo_issues<C: Clone + Connect>(
     github: &Github<C>, repo: Repository
 ) -> Box<StdStream<Item=IssuesItem, Error=hubcaps::Error>> {
-    debug!("Querying for issues in {:?}", repo);
     let github = github.clone();
 
     // Check if the repo exists first and return an empty stream if it doesn't.
     // (otherwise we would panic on an unwrap inside the hubcaps crate).
     let empty = Box::new(stream::empty()) as Box<StdStream<Item=IssuesItem, Error=hubcaps::Error>>;
     Box::new(
+        // TODO: just hit the github.com/$OWNER/$NAME URL with hyper,
+        // it won't count towards the rate limit
         github.repo(repo.owner.clone(), repo.name.clone()).get()
             .then(move |result| Ok(match result {
                 Ok(gh_repo) => {
@@ -132,6 +147,7 @@ fn repo_issues<C: Clone + Connect>(
                         return Ok(empty);
                     }
                     // TODO: add label filters that signify the issues are "easy"
+                    debug!("Querying for issues in {:?}", repo);
                     let query = format!("repo:{}/{}", repo.owner, repo.name);
                     Box::new(
                         github.search().issues().iter(query, &SearchIssuesOptions::default())

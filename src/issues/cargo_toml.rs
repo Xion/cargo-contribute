@@ -24,6 +24,7 @@ pub fn list_dependency_names<P: AsRef<Path>>(manifest_path: P) -> Result<Vec<Str
             Ok(vec![])
         }
         Some(&Toml::Table(ref t)) => {
+            // TODO: eliminate non-crates.io dependencies, like path="..." ones
             let result: Vec<_> = t.keys().cloned().collect();
             debug!("{} dependencies found in {}", result.len(), path.display());
             Ok(result)

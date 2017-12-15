@@ -52,6 +52,7 @@ use log::LogLevel::*;
 use tokio_core::reactor::Core;
 
 use args::ArgsError;
+use issues::SuggestedIssuesProducer;
 
 
 lazy_static! {
@@ -97,8 +98,10 @@ fn main() {
         exit(exitcode::TEMPFAIL);
     });
 
-    // TODO: command line option for providing Github credentials
-    let producer = issues::SuggestedIssuesProducer::new(&core.handle());
+    let producer = match opts.github_token {
+        Some(ref t) => SuggestedIssuesProducer::with_github_token(t, &core.handle()),
+        None => SuggestedIssuesProducer::new(&core.handle()),
+    };
     let mut issues = producer.suggest_issues(manifest_path).unwrap_or_else(|e| {
         error!("Failed to suggest issues: {}", e);
         exit(exitcode::IOERR);

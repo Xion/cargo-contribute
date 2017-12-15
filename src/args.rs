@@ -47,6 +47,8 @@ pub struct Options {
     /// Maximum number of issues to yield.
     /// If omitted, we'll keep searching for more indefinitely.
     pub count: Option<usize>,
+    /// Optional GitHub personal access token to use for authentication.
+    pub github_token: Option<String>,
 }
 
 #[allow(dead_code)]
@@ -70,8 +72,9 @@ impl<'a> TryFrom<ArgMatches<'a>> for Options {
             Some(c) => Some(c.parse()?),
             None => None,
         };
+        let github_token = matches.value_of(OPT_GITHUB_TOKEN).map(String::from);
 
-        Ok(Options{verbosity, manifest_path, count})
+        Ok(Options{verbosity, manifest_path, count, github_token})
     }
 }
 
@@ -117,6 +120,7 @@ lazy_static! {
 
 const OPT_MANIFEST_PATH: &'static str = "manifest-path";
 const OPT_COUNT: &'static str = "count";
+const OPT_GITHUB_TOKEN: &'static str = "github-token";
 const OPT_VERBOSE: &'static str = "verbose";
 const OPT_QUIET: &'static str = "quiet";
 
@@ -151,6 +155,18 @@ fn create_parser<'p>() -> Parser<'p> {
             .multiple(false)
             .value_name("N")
             .help("Maximum number of suggested issues to yield"))
+
+        .arg(Arg::with_name(OPT_GITHUB_TOKEN)
+            .long("token").long("github-token")
+            .takes_value(true)
+            .multiple(false)
+            .value_name("TOKEN")
+            .help("GitHub's personal access token to use")
+            .long_help(concat!(
+                "You can provide a personal access token generated using ",
+                "https://github.com/settings/tokens.",
+                "This helps avoiding rate limit problems when searching for ",
+                "issues to contribute to.")))
 
         // Verbosity flags.
         .arg(Arg::with_name(OPT_VERBOSE)
