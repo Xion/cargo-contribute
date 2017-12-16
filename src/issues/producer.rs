@@ -137,9 +137,20 @@ fn repo_issues<C: Clone + Connect>(
 ) -> Box<StdStream<Item=IssuesItem, Error=HubcapsError>> {
     let github = github.clone();
 
-    // TODO: add label filters that signify the issues are "easy"
     debug!("Querying for issues in {:?}", repo);
-    let query = format!("repo:{}/{}", repo.owner, repo.name);
+    let query = [
+        &format!("repo:{}/{}", repo.owner, repo.name),
+        "type:issue",
+        "state:open",
+        "no:assignee",
+        // TODO: find some way for specifying multiple labels linked with OR
+        // (GitHub only seems to support AND)
+        r#"label:"help wanted""#,
+        // Surface most recently updated issues first.
+        "sort:updated-desc",
+    ].iter().join(" ");
+    trace!("Search query: {}", query);
+
     Box::new(
         github.search().issues().iter(query, &SearchIssuesOptions::default())
             // We may encounter some HTTP errors when doing the search

@@ -111,12 +111,20 @@ fn main() {
         issues = Box::new(issues.take(count as u64));
     }
 
+    let mut found = false;
     core.run(
-        issues.for_each(|issue| { println!("{}", issue); Ok(()) })
+        issues.for_each(|issue| {
+            println!("{}", issue);
+            found = true;
+            Ok(())
+        })
     ).unwrap_or_else(|e| {
         error!("Suggesting issues failed with an error: {:?}", e);
         exit(exitcode::TEMPFAIL);
     });
+    if !found {
+        info!("No suitable issues to contribute to :-(");
+    }
 }
 
 // Print an error that may occur while parsing arguments.
