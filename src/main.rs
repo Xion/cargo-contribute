@@ -114,7 +114,7 @@ fn main() {
     let mut found = false;
     core.run(
         issues.for_each(|issue| {
-            println!("{}", issue);
+            println!("{} -- {}", issue, issue.url);
             found = true;
             Ok(())
         })

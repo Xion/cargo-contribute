@@ -2,6 +2,7 @@
 
 use std::fmt;
 
+use hubcaps::search::IssuesItem;
 use url::{Url, Host};
 
 
@@ -16,7 +17,20 @@ pub struct Issue {
     pub number: usize,
     /// Issue title.
     pub title: String,
-    // TODO: more interesting issue data
+    /// URL to the HTML page of the issue.
+    pub url: String,
+}
+
+impl From<IssuesItem> for Issue {
+    fn from(input: IssuesItem) -> Self {
+        let (owner, project) = input.repo_tuple();
+         Issue{
+            repo: Repository::new(owner, project),
+            number: input.number as usize,
+            title: input.title,
+            url: input.html_url,
+        }
+    }
 }
 
 impl fmt::Display for Issue {

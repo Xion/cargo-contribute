@@ -96,12 +96,7 @@ impl SuggestedIssuesProducer {
                     ))
                 .flatten_stream()
                 .map(|issue_item| {
-                    let (owner, project) = issue_item.repo_tuple();
-                    let issue = Issue{
-                        repo: Repository::new(owner, project),
-                        number: issue_item.number as usize,
-                        title: issue_item.title,
-                    };
+                    let issue = issue_item.into();
                     trace!("Found issue: {}", issue);
                     issue
                 })
