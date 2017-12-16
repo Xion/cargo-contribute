@@ -9,6 +9,7 @@ use hubcaps::errors::ErrorKind;
 use hubcaps::search::{IssuesItem, SearchIssuesOptions};
 use hyper::StatusCode;
 use hyper::client::{Client as HyperClient, Connect};
+use itertools::Itertools;
 use rand::{Rng, thread_rng};
 use tokio_core::reactor::Handle;
 
@@ -141,23 +142,33 @@ fn repo_issues<C: Clone + Connect>(
     let query = format!("repo:{}/{}", repo.owner, repo.name);
     Box::new(
         github.search().issues().iter(query, &SearchIssuesOptions::default())
-            // GitHub returns 422 Unprocessable Entity if the repo doesn't exist at all.
-            // This isn't really an error for us (since crate manifests can list invalid
-            // or outdated repos), so we terminate the stream early if it happens.
-            //
-            // (This termination is done by mapping the error to None
-            //  and using take_while() below).
+            // We may encounter some HTTP errors when doing the search
+            // which we translate to an early stream termination via a .then() + take_while() trick.
             .then(move |res| match res {
                 Ok(issue_item) => Ok(Some(issue_item)),
                 Err(HubcapsError(ErrorKind::Fault{ code, error }, _)) => {
                     debug!("HTTP {} error for repository {}/{}: {:?}",
                         code, repo.owner, repo.name, error);
-                    if code == StatusCode::UnprocessableEntity {
-                        warn!("Cannot access repository {}/{}: {}", repo.owner, repo.name, code);
-                        Ok(None)
-                    } else {
+                    match code {
+                        // GitHub returns 422 Unprocessable Entity if the repo doesn't exist at all.
+                        // This isn't really an error for us (since crate manifests can list invalid
+                        // or outdated repos), so we terminate the stream early if it happens.
+                        StatusCode::UnprocessableEntity => {
+                            warn!("Cannot access repository {}: {}", repo, code);
+                            Ok(None)
+                        }
+                        // If we hit HTTP 403, that probably means we've reached the GitHub rate limit.
+                        // Not much else we can do here, so we just stop poking it any more.
+                        StatusCode::Forbidden => {
+                            warn!("Possible rate limit hit when searching repository {}: {}",
+                                repo, error.message);
+                            if let Some(ref errors) = error.errors {
+                                debug!("HTTP 403 error details: {:?}", errors.iter().format(", "));
+                            }
+                            Ok(None)
+                        }
                         // For other HTTP faults, reconstruct the original error.
-                        Err(HubcapsError::from_kind(ErrorKind::Fault{code, error}))
+                        _ => Err(HubcapsError::from_kind(ErrorKind::Fault{code, error})),
                     }
                 }
                 Err(e) => Err(e),

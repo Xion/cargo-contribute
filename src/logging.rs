@@ -37,6 +37,12 @@ const NEGATIVE_VERBOSITY_LEVELS: &'static [FilterLevel] = &[
     FilterLevel::Off,
 ];
 
+/// Libraries that have their verbose/debug logging filtered out
+/// even on greater verbosity levels (because they spam too much).
+const SQUELCHED_LIBRARIES: &'static [&'static str] = &[
+    "hubcaps", "hyper", "tokio",
+];
+
 
 /// Initialize logging with given verbosity.
 /// The verbosity value has the same meaning as in args::Options::verbosity.
@@ -70,9 +76,9 @@ pub fn init(verbosity: isize) -> Result<(), SetLoggerError> {
     // Make some of the libraries less chatty
     // by raising the minimum logging level for them
     // (e.g. Info means that Debug and Trace level logs are filtered).
-    builder = builder
-        .filter(Some("hyper"), FilterLevel::Info)
-        .filter(Some("tokio"), FilterLevel::Info);
+    for &lib in SQUELCHED_LIBRARIES {
+        builder = builder.filter(Some(lib), FilterLevel::Info);
+    }
 
     // Include any additional config from environmental variables.
     // This will override the options above if necessary,

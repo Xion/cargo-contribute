@@ -149,6 +149,7 @@ fn create_parser<'p>() -> Parser<'p> {
             .value_name("PATH")
             .help("Path to a crate manifest to look through"))
 
+        // TODO: make the default more conservative because GitHub rate limits hard
         .arg(Arg::with_name(OPT_COUNT)
             .long("count").short("n")
             .takes_value(true)

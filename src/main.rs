@@ -14,6 +14,7 @@
              extern crate hyper;
              extern crate hyper_tls;
              extern crate isatty;
+             extern crate itertools;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate maplit;
 #[macro_use] extern crate macro_attr;
@@ -111,12 +112,11 @@ fn main() {
     }
 
     core.run(
-        issues.for_each(|issue| {
-            println!("[{}/{}] #{}: {}",
-                issue.repo.owner, issue.repo.name, issue.number, issue.title);
-            Ok(())
-        })
-    ).unwrap();
+        issues.for_each(|issue| { println!("{}", issue); Ok(()) })
+    ).unwrap_or_else(|e| {
+        error!("Suggesting issues failed with an error: {:?}", e);
+        exit(exitcode::TEMPFAIL);
+    });
 }
 
 // Print an error that may occur while parsing arguments.
