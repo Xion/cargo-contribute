@@ -74,6 +74,8 @@ impl SuggestedIssuesProducer {
         // Read the package/repository entries from the manifests of dependent crates
         // by talking to crates.io.
         let repos = {
+            // TODO: instead of querying crates.io immediately, look through the local Cargo cache first
+            // (~/.cargo/registry/src/**/*) which most likely contains the dep sources already
             let crates_io = self.crates_io.clone();
             stream::iter_ok(deps)
                 .and_then(move |dep| crates_io.lookup_crate(dep).map_err(Error::CratesIo))
