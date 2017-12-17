@@ -23,8 +23,10 @@ pub struct Issue {
 
 impl From<IssuesItem> for Issue {
     fn from(input: IssuesItem) -> Self {
-        let (owner, project) = input.repo_tuple();
-         Issue{
+        // TODO: reverse order of tuple (again) when this PR is merged:
+        // https://github.com/softprops/hubcaps/pull/100
+        let (project, owner) = input.repo_tuple();
+        Issue{
             repo: Repository::new(owner, project),
             number: input.number as usize,
             title: input.title,

@@ -12,14 +12,14 @@ check their GitHub repositories, and look for unassigned issues that their maint
 Here's a sample:
 
     $ cargo contribute
-    [clap-rs/kbknapp] #1094: -h, --help generate trailing spaces - https://github.com/kbknapp/clap-rs/issues/1094
-    [rust-itertools/bluss] #236: Forward `fn collect()` everywhere it is possible and where it makes a difference - https://github.com/bluss/rust-itertools/issues/236
-    [clap-rs/kbknapp] #1078: Dedupe Tests - https://github.com/kbknapp/clap-rs/issues/1078
-    [rust-itertools/bluss] #92: Group by that merges same key elements - https://github.com/bluss/rust-itertools/issues/92
-    [clap-rs/kbknapp] #1073: suboptimal flag suggestion - https://github.com/kbknapp/clap-rs/issues/1073
-    [rust-itertools/bluss] #32: Add Debug implementations where possible - https://github.com/bluss/rust-itertools/issues/32
-    [clap-rs/kbknapp] #850: zsh completion is too strict on command line args - https://github.com/kbknapp/clap-rs/issues/850
-    [isatty/dtolnay] #1: Implement stdin_isatty() for Windows - https://github.com/dtolnay/isatty/issues/1
+    [kbknapp/clap-rs] #1094: -h, --help generate trailing spaces - https://github.com/kbknapp/clap-rs/issues/1094
+    [bluss/rust-itertools] #236: Forward `fn collect()` everywhere it is possible and where it makes a difference - https://github.com/bluss/rust-itertools/issues/236
+    [kbknapp/clap-rs] #1078: Dedupe Tests - https://github.com/kbknapp/clap-rs/issues/1078
+    [bluss/rust-itertools] #92: Group by that merges same key elements - https://github.com/bluss/rust-itertools/issues/92
+    [kbknapp/clap-rs] #1073: suboptimal flag suggestion - https://github.com/kbknapp/clap-rs/issues/1073
+    [bluss/rust-itertools] #32: Add Debug implementations where possible - https://github.com/bluss/rust-itertools/issues/32
+    [kbknapp/clap-rs] #850: zsh completion is too strict on command line args - https://github.com/kbknapp/clap-rs/issues/850
+    [dtolnay/isatty] #1: Implement stdin_isatty() for Windows - https://github.com/dtolnay/isatty/issues/1
 
 ## Installation
 
@@ -36,9 +36,9 @@ By default, `cargo-contribute` will suggest _all_ suitable issues filed against 
 of your project. You can limit their number using the `-n`/`--count` flag:
 
     $ cargo contribute -n 3
-    [rust-itertools/bluss] #236: Forward `fn collect()` everywhere it is possible and where it makes a difference -- https://github.com/bluss/rust-itertools/issues/236
-    [rust-itertools/bluss] #92: Group by that merges same key elements -- https://github.com/bluss/rust-itertools/issues/92
-    [rust-itertools/bluss] #32: Add Debug implementations where possible -- https://github.com/bluss/rust-itertools/issues/32
+    [bluss/rust-itertools] #236: Forward `fn collect()` everywhere it is possible and where it makes a difference -- https://github.com/bluss/rust-itertools/issues/236
+    [bluss/rust-itertools] #92: Group by that merges same key elements -- https://github.com/bluss/rust-itertools/issues/92
+    [bluss/rust-itertools] #32: Add Debug implementations where possible -- https://github.com/bluss/rust-itertools/issues/32
 
 It is also possible to provide your own [personal access token](https://github.com/settings/tokens)
 to se when making calls to GitHub API
