@@ -6,10 +6,8 @@ authors = ["Karol Kuczmarski <karol.kuczmarski@gmail.com>"]
 keywords = [
     "cargo",
     "subcommand",
-    "contribute",
     "issues",
     "GitHub",
-    "open source",
     "community",
 ]
 license = "MIT"

@@ -1,5 +1,7 @@
 # cargo-contribute
 
+[![crates.io](https://img.shields.io/crates/v/cargo-contribute.svg)](https://crates.io/crates/cargo-contribute)
+
 A cargo subcommand for contributing to development of your dependencies
 
 ## About
