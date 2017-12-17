@@ -1,6 +1,6 @@
 [package]
 name = "cargo-contribute"
-version = "0.0.1"
+version = "0.1.0"
 description = "Cargo subcommand for contributing to development of your dependencies"
 authors = ["Karol Kuczmarski <karol.kuczmarski@gmail.com>"]
 keywords = [
