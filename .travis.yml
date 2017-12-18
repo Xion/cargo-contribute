@@ -1,0 +1,43 @@
+language: rust
+
+os:
+  - linux
+rust:
+  - stable
+  - beta
+  - nightly
+
+matrix:
+  # Test on nightly Rust, but failures there won't break the build.
+  allow_failures:
+    - rust: nightly
+
+
+#
+# Test script
+#
+
+script:
+  - cargo build
+  - cargo test --no-fail-fast
+
+
+#
+# Meta
+#
+
+branches:
+  only:
+    # Run CI on pushes and PRs to master
+    - master
+    # TODO: run also on tags when/if we have some deployment code
+    # (This regex matches semantic versions like v1.2.3-rc4+2016.02.22)
+    # - /^\d+\.\d+\.\d+.*$/
+
+git:
+  # Don't set this to 1
+  # (see note at https://docs.travis-ci.com/user/customizing-the-build#Git-Clone-Depth)
+  depth: 5
+
+cache:
+  - cargo

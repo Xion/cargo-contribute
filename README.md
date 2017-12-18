@@ -1,6 +1,7 @@
 # cargo-contribute
 
 [![crates.io](https://img.shields.io/crates/v/cargo-contribute.svg)](https://crates.io/crates/cargo-contribute)
+[![Build Status](https://travis-ci.org/Xion/cargo-contribute.svg?branch=master)](https://travis-ci.org/Xion/cargo-contribute)
 
 A cargo subcommand for contributing to development of your dependencies
 
@@ -18,7 +19,7 @@ Here's a sample:
     [bluss/rust-itertools] #236: Forward `fn collect()` everywhere it is possible and where it makes a difference - https://github.com/bluss/rust-itertools/issues/236
     [kbknapp/clap-rs] #1078: Dedupe Tests - https://github.com/kbknapp/clap-rs/issues/1078
     [bluss/rust-itertools] #92: Group by that merges same key elements - https://github.com/bluss/rust-itertools/issues/92
-    [kbknapp/clap-rs] #1073: suboptimal flag suggestion - https://github.com/kbknapp/clap-rs/issues/1073
+    [kbknapp/clap-rs] #1073: suboptimal flag suggestion - https://github.com/kbknapp/clap-issues/rs/1073
     [bluss/rust-itertools] #32: Add Debug implementations where possible - https://github.com/bluss/rust-itertools/issues/32
     [kbknapp/clap-rs] #850: zsh completion is too strict on command line args - https://github.com/kbknapp/clap-rs/issues/850
     [dtolnay/isatty] #1: Implement stdin_isatty() for Windows - https://github.com/dtolnay/isatty/issues/1
@@ -43,8 +44,8 @@ of your project. You can limit their number using the `-n`/`--count` flag:
     [bluss/rust-itertools] #32: Add Debug implementations where possible -- https://github.com/bluss/rust-itertools/issues/32
 
 It is also possible to provide your own [personal access token](https://github.com/settings/tokens)
-to se when making calls to GitHub API
-YThis helps to avoid the (pretty strict) rate limits that are imposed on anonymous calls:
+to se when making calls to GitHub API.
+This helps to avoid the (pretty strict) rate limits that are imposed on anonymous calls:
 
     $ cargo contribute --github-token XXXXXXXXXXXXXX
 
