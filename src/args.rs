@@ -146,8 +146,11 @@ fn create_parser<'p>() -> Parser<'p> {
     }
     parser
         .bin_name("cargo contribute")
-        .about(*ABOUT)
         .author(crate_authors!(", "))
+        .about(*ABOUT)
+        .long_about(concat!(
+            "Look at this crate's [dependencies] and suggest some of their open issues\n",
+            "as potential avenues for making contributions (pull requests)."))
 
         .setting(AppSettings::StrictUtf8)
 
@@ -174,7 +177,7 @@ fn create_parser<'p>() -> Parser<'p> {
             .long_help(concat!(
                 "How many issues to print in total.\n\n",
                 "If omitted, the program will look for all matching issues\n",
-                "(which may easily lead to hitting GitHub's rate limits).")))
+                "(which may easily lead to hitting GitHub's rate limits).\n")))
 
         .arg(Arg::with_name(OPT_GITHUB_TOKEN)
             .long("github-token").alias("token")
@@ -188,7 +191,7 @@ fn create_parser<'p>() -> Parser<'p> {
                 "You can provide a personal access token generated using\n",
                 "https://github.com/settings/tokens.\n",
                 "This helps avoiding rate limit problems when searching for ",
-                "issues to contribute to.")))
+                "issues to contribute to.\n")))
 
         .arg(Arg::with_name(OPT_FORMAT)
             .long("format")
