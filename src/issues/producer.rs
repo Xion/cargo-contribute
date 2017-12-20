@@ -4,9 +4,9 @@ use std::fmt;
 use std::path::Path;
 
 use futures::{future, Future, stream, Stream as StdStream};
-use hubcaps::{self, Credentials, Error as HubcapsError, Github};
+use hubcaps::{self, Credentials, Error as HubcapsError, Github, SortDirection};
 use hubcaps::errors::ErrorKind;
-use hubcaps::search::{IssuesItem, SearchIssuesOptions};
+use hubcaps::search::{IssuesItem, IssuesSort, SearchIssuesOptions};
 use hyper::StatusCode;
 use hyper::client::{Client as HyperClient, Connect};
 use itertools::Itertools;
@@ -150,16 +150,23 @@ fn repo_issues<C: Clone + Connect>(
         "type:issue",
         "state:open",
         "no:assignee",
-        // Surface most recently updated issues first.
-        "sort:updated-desc",
     ].iter().join(" ");
     trace!("Search query: {}", query);
     if log_enabled!(Trace) {
         trace!("Accepted issue labels: {}", ISSUE_LABELS.iter().format(", "));
     }
 
+    let options = SearchIssuesOptions::builder()
+        // Return the maximum number of results possible
+        // (as per https://developer.github.com/v3/search/#search-issues).
+        .per_page(100)
+        // Surface most recently updated issues first.
+        .sort(IssuesSort::Updated)
+        .order(SortDirection::Desc)
+        .build();
+
     Box::new(
-        github.search().issues().iter(query, &SearchIssuesOptions::default())
+        github.search().issues().iter(query, &options)
             // We may encounter some HTTP errors when doing the search
             // which we translate to an early stream termination via a .then() + take_while() trick.
             .then(move |res| match res {
