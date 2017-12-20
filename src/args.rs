@@ -160,7 +160,11 @@ fn create_parser<'p>() -> Parser<'p> {
             .takes_value(true)
             .multiple(false)
             .value_name("N")
-            .help("Maximum number of suggested issues to yield"))
+            .help("Maximum number of suggested issues to yield")
+            .long_help(concat!(
+                "How many issues to print in total.\n\n",
+                "If omitted, the program will look for all matching issues\n",
+                "(which may easily lead to hitting GitHub's rate limits).")))
 
         .arg(Arg::with_name(OPT_GITHUB_TOKEN)
             .long("token").long("github-token")
@@ -169,8 +173,9 @@ fn create_parser<'p>() -> Parser<'p> {
             .value_name("TOKEN")
             .help("GitHub's personal access token to use")
             .long_help(concat!(
-                "You can provide a personal access token generated using ",
-                "https://github.com/settings/tokens.",
+                "Access token to use when querying GitHub API.\n\n",
+                "You can provide a personal access token generated using\n",
+                "https://github.com/settings/tokens.\n",
                 "This helps avoiding rate limit problems when searching for ",
                 "issues to contribute to.")))
 

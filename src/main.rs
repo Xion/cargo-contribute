@@ -114,6 +114,7 @@ fn main() {
     let mut found = false;
     core.run(
         issues.for_each(|issue| {
+            // TODO: add flags to control formatting
             println!("{} -- {}", issue, issue.url);
             found = true;
             Ok(())
