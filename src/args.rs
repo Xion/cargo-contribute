@@ -5,13 +5,17 @@ use std::error::Error;
 use std::fmt;
 use std::ffi::OsString;
 use std::iter::IntoIterator;
+use std::mem;
 use std::num::ParseIntError;
 use std::path::PathBuf;
+use std::slice;
+use std::str;
 
 use clap::{self, AppSettings, Arg, ArgMatches};
 use conv::TryFrom;
+use itertools::Itertools;
 
-use super::{NAME, VERSION};
+use super::{ISSUE_FORMATTERS, NAME, VERSION};
 
 
 // Parse command line arguments and return `Options` object.
@@ -155,6 +159,7 @@ fn create_parser<'p>() -> Parser<'p> {
         .arg(Arg::with_name(OPT_MANIFEST_PATH)
             .long("manifest-path")
             .takes_value(true)
+            .empty_values(false)
             .multiple(false)
             .value_name("PATH")
             .help("Path to a crate manifest to look through"))
@@ -162,6 +167,7 @@ fn create_parser<'p>() -> Parser<'p> {
         .arg(Arg::with_name(OPT_COUNT)
             .long("count").short("n")
             .takes_value(true)
+            .empty_values(false)
             .multiple(false)
             .value_name("N")
             .help("Maximum number of suggested issues to yield")
@@ -173,6 +179,7 @@ fn create_parser<'p>() -> Parser<'p> {
         .arg(Arg::with_name(OPT_GITHUB_TOKEN)
             .long("github-token").alias("token")
             .takes_value(true)
+            .empty_values(false)
             .multiple(false)
             .value_name("TOKEN")
             .help("GitHub's personal access token to use")
@@ -187,16 +194,18 @@ fn create_parser<'p>() -> Parser<'p> {
             .long("format")
             .visible_alias("template").short("T")  // inspired by `hg log`
             .takes_value(true)
+            .empty_values(true)
+            .allow_hyphen_values(true)
             .multiple(false)
             .value_name("FORMAT")
             .help("Custom formatting string for printing suggested issues")
-            .long_help(concat!(
-                "Use this flag to specify your own formatting string ",
-                "to use when printing suggested issues.\n\n",
-                "This string follows the normal Rust syntax from format!() et al. ",
-                "The following placeholders are available for use:\n",
-                "{owner}, {project}, {repo} (equiv. to {owner}/{project}), ",
-                "{number}, {url}")))
+            .long_help(leak(format!(concat!(
+                "Specify your own formatting string to use when printing suggested issues.\n\n",
+                "This string follows the normal Rust syntax from format!() et al.\n",
+                "The following issue placeholders are available for use:\n",
+                "{}"), ISSUE_FORMATTERS.keys().format_with(", ", |key, f| {
+                    f(&format_args!("{{{}}}", key))  // {key}
+                })))))
 
         // Verbosity flags.
         .arg(Arg::with_name(OPT_VERBOSE)
@@ -212,4 +221,15 @@ fn create_parser<'p>() -> Parser<'p> {
 
         .help_short("H")
         .version_short("V")
+}
+
+/// Convert a value to a &'static str by leaking the memory of an owned String.
+fn leak<T: ToString>(v: T) -> &'static str {
+    let s = v.to_string();
+    unsafe {
+        let (ptr, len) = (s.as_ptr(), s.len());
+        mem::forget(s);
+        let bytes: &'static [u8] = slice::from_raw_parts(ptr, len);
+        str::from_utf8_unchecked(bytes)
+    }
 }

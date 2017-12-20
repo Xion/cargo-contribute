@@ -45,6 +45,7 @@ mod util;
 
 
 use std::borrow::Cow;
+use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
 use std::process::exit;
@@ -169,21 +170,23 @@ fn suggest_contributions(core: &mut Core, opts: &Options) -> ! {
 fn print_issue(fmt: Option<&str>, issue: &Issue) -> Result<(), Box<Error>> {
     match fmt {
         Some(f) => {
-            let repo = format!("{}", issue.repo);
-            let number = format!("{}", issue.number);
-            let params = hashmap!{
-                // TODO: find a way to keep this in sync with args.rs
-                // (most likely a hashmap of Fn(&Issue) -> String)
-                "owner".into() => &issue.repo.owner,
-                "project".into() => &issue.repo.name,
-                "repo".into() => &repo,
-                "number".into() => &number,
-                "url".into() => &issue.url,
-            };
+            let params: HashMap<String, _> = ISSUE_FORMATTERS.iter()
+                .map(|(&p, &f)| (p.to_owned(), f(issue)))
+                .collect();
             let line = strfmt(f, &params)?;
             println!("{}", line);
         }
         None => println!("{} -- {}", issue, issue.url),
     }
     Ok(())
+}
+
+lazy_static! {
+    static ref ISSUE_FORMATTERS: HashMap<&'static str, fn(&Issue) -> Cow<str>> = hashmap!{
+        "owner" => (|issue| Cow::Borrowed(issue.repo.owner.as_str())) as fn(&Issue) -> Cow<str>,
+        "project" => |issue| Cow::Borrowed(issue.repo.name.as_str()),
+        "repo" => |issue| Cow::Owned(format!("{}", issue.repo)),
+        "number" => |issue| Cow::Owned(format!("{}", issue.number)),
+        "url" => |issue| Cow::Borrowed(issue.url.as_str()),
+    };
 }
