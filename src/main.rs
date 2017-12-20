@@ -22,6 +22,7 @@
              extern crate serde;
 #[macro_use] extern crate serde_derive;
              extern crate serde_json;
+             extern crate strfmt;
              extern crate slog_envlogger;
              extern crate slog_stdlog;
              extern crate slog_stream;
@@ -50,6 +51,7 @@ use std::process::exit;
 
 use futures::Stream;
 use log::LogLevel::*;
+use strfmt::strfmt;
 use tokio_core::reactor::Core;
 
 use args::ArgsError;
@@ -115,11 +117,25 @@ fn main() {
 
     let mut found = false;
     core.run(
-        issues.for_each(|issue| {
-            // TODO: add flags to control formatting
-            println!("{} -- {}", issue, issue.url);
+        issues.from_err().for_each(|issue| {
             found = true;
-            Ok(())
+            match opts.format {
+                Some(ref f) => {
+                    let repo = format!("{}", issue.repo);
+                    let number = format!("{}", issue.number);
+                    let params = hashmap!{
+                        "owner".into() => &issue.repo.owner,
+                        "project".into() => &issue.repo.name,
+                        "repo".into() => &repo,
+                        "number".into() => &number,
+                        "url".into() => &issue.url,
+                    };
+                    let line = strfmt(f, &params)?;
+                    println!("{}", line);
+                }
+                None => println!("{} -- {}", issue, issue.url),
+            }
+            Ok::<(), Box<Error>>(())
         })
     ).unwrap_or_else(|e| {
         error!("Suggesting issues failed with an error: {:?}", e);

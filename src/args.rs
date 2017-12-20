@@ -55,6 +55,8 @@ pub struct Options {
     pub count: Option<usize>,
     /// Optional GitHub personal access token to use for authentication.
     pub github_token: Option<String>,
+    /// Optional format string to use when printing issues.
+    pub format: Option<String>,
 }
 
 #[allow(dead_code)]
@@ -79,8 +81,9 @@ impl<'a> TryFrom<ArgMatches<'a>> for Options {
             None => None,
         };
         let github_token = matches.value_of(OPT_GITHUB_TOKEN).map(String::from);
+        let format = matches.value_of(OPT_FORMAT).map(String::from);
 
-        Ok(Options{verbosity, manifest_path, count, github_token})
+        Ok(Options{verbosity, manifest_path, count, github_token, format})
     }
 }
 
@@ -127,6 +130,7 @@ lazy_static! {
 const OPT_MANIFEST_PATH: &'static str = "manifest-path";
 const OPT_COUNT: &'static str = "count";
 const OPT_GITHUB_TOKEN: &'static str = "github-token";
+const OPT_FORMAT: &'static str = "format";
 const OPT_VERBOSE: &'static str = "verbose";
 const OPT_QUIET: &'static str = "quiet";
 
@@ -167,7 +171,7 @@ fn create_parser<'p>() -> Parser<'p> {
                 "(which may easily lead to hitting GitHub's rate limits).")))
 
         .arg(Arg::with_name(OPT_GITHUB_TOKEN)
-            .long("token").long("github-token")
+            .long("github-token").alias("token")
             .takes_value(true)
             .multiple(false)
             .value_name("TOKEN")
@@ -178,6 +182,21 @@ fn create_parser<'p>() -> Parser<'p> {
                 "https://github.com/settings/tokens.\n",
                 "This helps avoiding rate limit problems when searching for ",
                 "issues to contribute to.")))
+
+        .arg(Arg::with_name(OPT_FORMAT)
+            .long("format")
+            .alias("template").short("T")  // inspired by `hg log`
+            .takes_value(true)
+            .multiple(false)
+            .value_name("FORMAT")
+            .help("Custom formatting string for printing suggested issues")
+            .long_help(concat!(
+                "Use this flag to specify your own formatting string ",
+                "to use when printing suggested issues.\n\n",
+                "This string follows the normal Rust syntax from format!() et al. ",
+                "The following placeholders are available for use:\n",
+                "{owner}, {project}, {repo} (equiv. to {owner}/{project}), ",
+                "{number}, {url}")))
 
         // Verbosity flags.
         .arg(Arg::with_name(OPT_VERBOSE)
