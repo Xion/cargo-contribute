@@ -10,6 +10,7 @@ use hubcaps::search::{IssuesItem, SearchIssuesOptions};
 use hyper::StatusCode;
 use hyper::client::{Client as HyperClient, Connect};
 use itertools::Itertools;
+use log::LogLevel::*;
 use rand::{Rng, thread_rng};
 use tokio_core::reactor::Handle;
 
@@ -128,6 +129,15 @@ pub enum Error {
 
 const GITHUB_API_ROOT: &'static str = "https://api.github.com";
 
+/// Issue labels that we're looking for when suggesting issues.
+/// At least one of these must be present.
+const ISSUE_LABELS: &'static [&'static str] = &[
+    "help wanted",
+    "good first issue",
+    "easy",
+    "beginner",
+];
+
 /// Provide suggested issues specifically from given GitHub repo.
 fn repo_issues<C: Clone + Connect>(
     github: &Github<C>, repo: Repository
@@ -140,13 +150,13 @@ fn repo_issues<C: Clone + Connect>(
         "type:issue",
         "state:open",
         "no:assignee",
-        // TODO: find some way for specifying multiple labels linked with OR
-        // (GitHub only seems to support AND)
-        r#"label:"help wanted""#,
         // Surface most recently updated issues first.
         "sort:updated-desc",
     ].iter().join(" ");
     trace!("Search query: {}", query);
+    if log_enabled!(Trace) {
+        trace!("Accepted issue labels: {}", ISSUE_LABELS.iter().format(", "));
+    }
 
     Box::new(
         github.search().issues().iter(query, &SearchIssuesOptions::default())
@@ -182,5 +192,24 @@ fn repo_issues<C: Clone + Connect>(
                 Err(e) => Err(e),
             })
             .take_while(|opt_ii| future::ok(opt_ii.is_some())).map(Option::unwrap)
+            // Filter issues to match one of the labels we're looking for.
+            .filter(|ii| ii.labels.iter().any(|l| {
+                let label = l.name.trim().to_lowercase();
+                ISSUE_LABELS.contains(&label.as_str())
+            }))
     )
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::ISSUE_LABELS;
+
+    #[test]
+    fn issue_labels_format() {
+        for &label in ISSUE_LABELS.iter() {
+            assert!(label.trim() == label);
+            assert!(&label.to_lowercase() == label);
+        }
+    }
 }
