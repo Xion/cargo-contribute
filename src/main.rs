@@ -91,7 +91,7 @@ fn main() {
                 Some(ref path) => format!("under {}", path.display()),
                 None => format!("; make sure you're in the crate root directory."),
             });
-        exit(exitcode::USAGE);
+        exit(exitcode::DATAERR);
     }
 
     let mut core = Core::new().unwrap_or_else(|e| {
@@ -99,6 +99,8 @@ fn main() {
         exit(exitcode::TEMPFAIL);
     });
 
+    // TODO: consider doing the OAuth flow via a browser and saving the access token+secret
+    // as another mode of authentication
     let producer = match opts.github_token {
         Some(ref t) => SuggestedIssuesProducer::with_github_token(t, &core.handle()),
         None => SuggestedIssuesProducer::new(&core.handle()),

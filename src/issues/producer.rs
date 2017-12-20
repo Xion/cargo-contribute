@@ -201,22 +201,32 @@ fn repo_issues<C: Clone + Connect>(
             .take_while(|opt_ii| future::ok(opt_ii.is_some())).map(Option::unwrap)
             // Filter issues to match one of the labels we're looking for.
             .filter(|ii| ii.labels.iter().any(|l| {
-                let label = l.name.trim().to_lowercase();
+                let label = canonicalize_label(&l.name);
                 ISSUE_LABELS.contains(&label.as_str())
             }))
     )
 }
 
+/// Convert a GitHub label to its "canonical" form for comparison purposes.
+fn canonicalize_label(label: &str) -> String {
+    // Strip punctuation, sanitize whitespace, and remove freestanding capital letters
+    // (which are often used in labels to keep them sorted).
+    label.split(|c: char| c.is_whitespace()).map(|w| w.trim())
+        .map(|w| w.chars().filter(|c| c.is_alphanumeric()).collect::<String>())
+        .filter(|w| !(w.len() == 1 && w.chars().all(|c| c.is_uppercase())))
+        .map(|w| w.to_lowercase())
+        .join(" ")
+}
+
 
 #[cfg(test)]
 mod tests {
-    use super::ISSUE_LABELS;
+    use super::{canonicalize_label, ISSUE_LABELS};
 
     #[test]
-    fn issue_labels_format() {
+    fn issue_labels_are_canonical() {
         for &label in ISSUE_LABELS.iter() {
-            assert!(label.trim() == label);
-            assert!(&label.to_lowercase() == label);
+            assert!(label == &canonicalize_label(label));
         }
     }
 }
