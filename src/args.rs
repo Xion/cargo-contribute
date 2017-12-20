@@ -185,7 +185,7 @@ fn create_parser<'p>() -> Parser<'p> {
 
         .arg(Arg::with_name(OPT_FORMAT)
             .long("format")
-            .alias("template").short("T")  // inspired by `hg log`
+            .visible_alias("template").short("T")  // inspired by `hg log`
             .takes_value(true)
             .multiple(false)
             .value_name("FORMAT")

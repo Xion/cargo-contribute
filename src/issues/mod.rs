@@ -5,4 +5,5 @@ mod crates_io;
 mod model;
 mod producer;
 
+pub use self::model::{Issue, Repository};
 pub use self::producer::{Error, SuggestedIssuesProducer};

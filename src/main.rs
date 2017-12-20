@@ -54,8 +54,8 @@ use log::LogLevel::*;
 use strfmt::strfmt;
 use tokio_core::reactor::Core;
 
-use args::ArgsError;
-use issues::SuggestedIssuesProducer;
+use args::{ArgsError, Options};
+use issues::{Issue, SuggestedIssuesProducer};
 
 
 lazy_static! {
@@ -85,65 +85,11 @@ fn main() {
     logging::init(opts.verbosity).unwrap();
     log_signature();
 
-    let manifest_path = opts.manifest_path.as_ref()
-        .map(|p| p as &Path).unwrap_or(Path::new("./Cargo.toml"));
-    if !manifest_path.is_file() {
-        error!("Couldn't find crate manifest {}.",
-            match opts.manifest_path {
-                Some(ref path) => format!("under {}", path.display()),
-                None => format!("; make sure you're in the crate root directory."),
-            });
-        exit(exitcode::DATAERR);
-    }
-
     let mut core = Core::new().unwrap_or_else(|e| {
         error!("Failed to initialize Tokio core: {}", e);
         exit(exitcode::TEMPFAIL);
     });
-
-    // TODO: consider doing the OAuth flow via a browser and saving the access token+secret
-    // as another mode of authentication
-    let producer = match opts.github_token {
-        Some(ref t) => SuggestedIssuesProducer::with_github_token(t, &core.handle()),
-        None => SuggestedIssuesProducer::new(&core.handle()),
-    };
-    let mut issues = producer.suggest_issues(manifest_path).unwrap_or_else(|e| {
-        error!("Failed to suggest issues: {}", e);
-        exit(exitcode::IOERR);
-    });
-    if let Some(count) = opts.count {
-        issues = Box::new(issues.take(count as u64));
-    }
-
-    let mut found = false;
-    core.run(
-        issues.from_err().for_each(|issue| {
-            found = true;
-            match opts.format {
-                Some(ref f) => {
-                    let repo = format!("{}", issue.repo);
-                    let number = format!("{}", issue.number);
-                    let params = hashmap!{
-                        "owner".into() => &issue.repo.owner,
-                        "project".into() => &issue.repo.name,
-                        "repo".into() => &repo,
-                        "number".into() => &number,
-                        "url".into() => &issue.url,
-                    };
-                    let line = strfmt(f, &params)?;
-                    println!("{}", line);
-                }
-                None => println!("{} -- {}", issue, issue.url),
-            }
-            Ok::<(), Box<Error>>(())
-        })
-    ).unwrap_or_else(|e| {
-        error!("Suggesting issues failed with an error: {:?}", e);
-        exit(exitcode::TEMPFAIL);
-    });
-    if !found {
-        info!("No suitable issues to contribute to :-(");
-    }
+    suggest_contributions(&mut core, &opts);
 }
 
 // Print an error that may occur while parsing arguments.
@@ -169,4 +115,75 @@ fn log_signature() {
             .unwrap_or_else(|| "<UNKNOWN VERSION>".into());
         info!("{} {}", *NAME, version);
     }
+}
+
+
+/// Actual entry point of the program.
+///
+/// Suggest issues to contribute to based on given command line options,
+/// and print them to stdout.
+fn suggest_contributions(core: &mut Core, opts: &Options) -> ! {
+    let manifest_path = opts.manifest_path.as_ref()
+        .map(|p| p as &Path).unwrap_or(Path::new("./Cargo.toml"));
+    if !manifest_path.is_file() {
+        error!("Couldn't find crate manifest {}.",
+            match opts.manifest_path {
+                Some(ref path) => format!("under {}", path.display()),
+                None => format!("; make sure you're in the crate root directory."),
+            });
+        exit(exitcode::DATAERR);
+    }
+
+    // TODO: consider doing the OAuth flow via a browser and saving the access token+secret
+    // as another mode of authentication
+    let producer = match opts.github_token {
+        Some(ref t) => SuggestedIssuesProducer::with_github_token(t, &core.handle()),
+        None => SuggestedIssuesProducer::new(&core.handle()),
+    };
+    let mut issues = producer.suggest_issues(manifest_path).unwrap_or_else(|e| {
+        error!("Failed to suggest issues: {}", e);
+        exit(exitcode::IOERR);
+    });
+    if let Some(count) = opts.count {
+        issues = Box::new(issues.take(count as u64));
+    }
+
+    let mut found = false;
+    core.run(
+        issues.from_err().for_each(|issue| {
+            found = true;
+            print_issue(opts.format.as_ref().map(|f| f.as_str()), &issue)
+        })
+    ).unwrap_or_else(|e| {
+        error!("Suggesting issues failed with an error: {:?}", e);
+        exit(exitcode::TEMPFAIL);
+    });
+    if !found {
+        info!("No suitable issues to contribute to :-(");
+    }
+
+    exit(exitcode::OK)
+}
+
+/// Print a single issue to standard output.
+fn print_issue(fmt: Option<&str>, issue: &Issue) -> Result<(), Box<Error>> {
+    match fmt {
+        Some(f) => {
+            let repo = format!("{}", issue.repo);
+            let number = format!("{}", issue.number);
+            let params = hashmap!{
+                // TODO: find a way to keep this in sync with args.rs
+                // (most likely a hashmap of Fn(&Issue) -> String)
+                "owner".into() => &issue.repo.owner,
+                "project".into() => &issue.repo.name,
+                "repo".into() => &repo,
+                "number".into() => &number,
+                "url".into() => &issue.url,
+            };
+            let line = strfmt(f, &params)?;
+            println!("{}", line);
+        }
+        None => println!("{} -- {}", issue, issue.url),
+    }
+    Ok(())
 }
