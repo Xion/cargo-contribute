@@ -52,7 +52,7 @@ use std::process::exit;
 
 use futures::Stream;
 use log::LogLevel::*;
-use strfmt::strfmt;
+use strfmt::{FmtError, strfmt};
 use tokio_core::reactor::Core;
 
 use args::{ArgsError, Options};
@@ -169,24 +169,27 @@ fn suggest_contributions(core: &mut Core, opts: &Options) -> ! {
 /// Print a single issue to standard output.
 fn print_issue(fmt: Option<&str>, issue: &Issue) -> Result<(), Box<Error>> {
     match fmt {
-        Some(f) => {
-            let params: HashMap<String, _> = ISSUE_FORMATTERS.iter()
-                .map(|(&p, &f)| (p.to_owned(), f(issue)))
-                .collect();
-            let line = strfmt(f, &params)?;
-            println!("{}", line);
-        }
+        Some(f) => println!("{}", format_issue(f, issue)?),
         None => println!("{} -- {}", issue, issue.url),
     }
     Ok(())
 }
 
+/// Format an issue according to user-provided format.
+fn format_issue(fmt: &str, issue: &Issue) -> Result<String, FmtError> {
+    let params: HashMap<String, _> = ISSUE_FORMATTERS.iter()
+        .map(|(&p, &f)| (p.to_owned(), f(issue)))
+        .collect();
+    let line = strfmt(fmt, &params)?;
+    Ok(line)
+}
+
 lazy_static! {
     static ref ISSUE_FORMATTERS: HashMap<&'static str, fn(&Issue) -> Cow<str>> = hashmap!{
-        "owner" => (|issue| Cow::Borrowed(issue.repo.owner.as_str())) as fn(&Issue) -> Cow<str>,
-        "project" => |issue| Cow::Borrowed(issue.repo.name.as_str()),
-        "repo" => |issue| Cow::Owned(format!("{}", issue.repo)),
-        "number" => |issue| Cow::Owned(format!("{}", issue.number)),
-        "url" => |issue| Cow::Borrowed(issue.url.as_str()),
+        "owner" => (|issue| issue.repo.owner.as_str().into()) as fn(&Issue) -> Cow<str>,
+        "project" => |issue| issue.repo.name.as_str().into(),
+        "repo" => |issue| format!("{}", issue.repo).into(),
+        "number" => |issue| format!("{}", issue.number).into(),
+        "url" => |issue| issue.url.as_str().into(),
     };
 }

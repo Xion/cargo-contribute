@@ -14,8 +14,10 @@ use std::str;
 use clap::{self, AppSettings, Arg, ArgMatches};
 use conv::TryFrom;
 use itertools::Itertools;
+use strfmt::FmtError;
 
-use super::{ISSUE_FORMATTERS, NAME, VERSION};
+use super::{ISSUE_FORMATTERS, NAME, VERSION, format_issue};
+use issues::{Issue, Repository};
 
 
 // Parse command line arguments and return `Options` object.
@@ -199,6 +201,7 @@ fn create_parser<'p>() -> Parser<'p> {
             .takes_value(true)
             .empty_values(true)
             .allow_hyphen_values(true)
+            .validator(validate_format)
             .multiple(false)
             .value_name("FORMAT")
             .help("Custom formatting string for printing suggested issues")
@@ -225,6 +228,26 @@ fn create_parser<'p>() -> Parser<'p> {
         .help_short("H")
         .version_short("V")
 }
+
+/// Validator for the --format flag value.
+fn validate_format(format: String) -> Result<(), String> {
+    lazy_static! {
+        static ref EXAMPLE_ISSUE: Issue = Issue{
+            repo: Repository::new("Octocat", "hello-world"),
+            number: 42,
+            title: "Optimize reticulating spines".into(),
+            url: "http://example.com/42".into(),
+        };
+    }
+    format_issue(&format, &*EXAMPLE_ISSUE).map(|_| ()).map_err(|e| match e {
+        FmtError::Invalid(msg) => msg,
+        FmtError::KeyError(msg) => msg,
+        // Other errors shouldn't happen because they would indicate problems
+        // with formatting arguments, i.e. a bug in our code.
+        e => panic!("Unexpected error when validating --format: {}", e),
+    })
+}
+
 
 /// Convert a value to a &'static str by leaking the memory of an owned String.
 fn leak<T: ToString>(v: T) -> &'static str {
