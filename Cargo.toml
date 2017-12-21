@@ -10,7 +10,7 @@ keywords = [
     "GitHub",
     "community",
 ]
-license = "MIT"
+license = "GPLv3"
 readme = "README.md"
 documentation = "https://docs.rs/cargo-contribute"
 homepage = "https://github.com/Xion/cargo-contribute"

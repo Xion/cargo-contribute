@@ -67,4 +67,4 @@ For more detailed usage instructions, check `cargo contribute --help`.
 
 ## License
 
-`cargo-contribute` is licensed under the terms of the MIT license.
+`cargo-contribute` is licensed under the terms of the GPLv3 license.
