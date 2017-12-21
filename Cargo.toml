@@ -1,6 +1,6 @@
 [package]
 name = "cargo-contribute"
-version = "0.1.1"
+version = "0.2.0"
 description = "Cargo subcommand for contributing to development of your dependencies"
 authors = ["Karol Kuczmarski <karol.kuczmarski@gmail.com>"]
 keywords = [
@@ -10,7 +10,7 @@ keywords = [
     "GitHub",
     "community",
 ]
-license = "GPLv3"
+license = "GPL-3.0"
 readme = "README.md"
 documentation = "https://docs.rs/cargo-contribute"
 homepage = "https://github.com/Xion/cargo-contribute"
