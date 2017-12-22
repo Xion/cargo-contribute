@@ -173,6 +173,7 @@ fn create_parser<'p>() -> Parser<'p> {
             .long("count").short("n")
             .takes_value(true)
             .empty_values(false)
+            .validator(validate_count)
             .multiple(false)
             .value_name("N")
             .help("Maximum number of suggested issues to yield")
@@ -227,6 +228,11 @@ fn create_parser<'p>() -> Parser<'p> {
 
         .help_short("H")
         .version_short("V")
+}
+
+/// Validator for the --count flag value.
+fn validate_count(count: String) -> Result<(), String> {
+    count.parse::<usize>().map(|_| ()).map_err(|e| format!("{}", e))
 }
 
 /// Validator for the --format flag value.
