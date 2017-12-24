@@ -89,8 +89,7 @@ impl<C: Clone> Client<C> {
 impl<C: Clone + Connect> Client<C> {
     /// Lookup a crate by name, returning its metadata.
     /// Returns None if the crate couldn't be found
-    pub fn lookup_crate<I: ToString>(&self, id: I) -> Future<Option<Crate>> {
-        let id = id.to_string();
+    pub fn lookup_crate(&self, id: String) -> Future<Option<Crate>> {
         trace!("Looking up crate `{}` on crates.io...", id);
         let url = Uri::from_str(&format!("{}/crates/{}", API_ROOT, id)).unwrap();
         self.http.get(url).map_err(Error::Http).and_then(move |resp| {

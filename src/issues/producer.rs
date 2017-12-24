@@ -70,7 +70,7 @@ impl SuggestedIssuesProducer {
         debug!("Suggesting dependency issues for manifest path {}", manifest_path.display());
 
         let mut deps = cargo_toml::list_dependencies(manifest_path)?.into_iter()
-            .filter(|d| !d.is_local())  // eliminate `path = ...` dependencies
+            .filter(|d| d.location().is_registry())  // retain only crates.io deps
             .collect_vec();
         thread_rng().shuffle(&mut deps);
 
@@ -84,7 +84,7 @@ impl SuggestedIssuesProducer {
                 .and_then(move |dep| {
                     // TODO: consider looking up only the particular version of the dep
                     // that was specified in the manifest (if it indeed was)
-                    crates_io.lookup_crate(dep.name()).map_err(Error::CratesIo)
+                    crates_io.lookup_crate(dep.name().to_owned()).map_err(Error::CratesIo)
                 })
                 .filter_map(|opt_c| opt_c)
                 .filter_map(|crate_| {
