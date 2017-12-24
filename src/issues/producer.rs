@@ -69,7 +69,9 @@ impl SuggestedIssuesProducer {
         let manifest_path = manifest_path.as_ref();
         debug!("Suggesting dependency issues for manifest path {}", manifest_path.display());
 
-        let mut deps = cargo_toml::list_dependency_names(manifest_path)?;
+        let mut deps = cargo_toml::list_dependencies(manifest_path)?.into_iter()
+            .filter(|d| !d.is_local())  // eliminate `path = ...` dependencies
+            .collect_vec();
         thread_rng().shuffle(&mut deps);
 
         // Read the package/repository entries from the manifests of dependent crates
@@ -79,7 +81,11 @@ impl SuggestedIssuesProducer {
             // (~/.cargo/registry/src/**/*) which most likely contains the dep sources already
             let crates_io = self.crates_io.clone();
             stream::iter_ok(deps)
-                .and_then(move |dep| crates_io.lookup_crate(dep).map_err(Error::CratesIo))
+                .and_then(move |dep| {
+                    // TODO: consider looking up only the particular version of the dep
+                    // that was specified in the manifest (if it indeed was)
+                    crates_io.lookup_crate(dep.name()).map_err(Error::CratesIo)
+                })
                 .filter_map(|opt_c| opt_c)
                 .filter_map(|crate_| {
                     crate_.metadata.repo_url.as_ref()
