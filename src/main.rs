@@ -19,6 +19,7 @@
 #[macro_use] extern crate maplit;
 #[macro_use] extern crate macro_attr;
              extern crate rand;
+             extern crate regex;
              extern crate serde;
 #[macro_use] extern crate serde_derive;
              extern crate serde_json;

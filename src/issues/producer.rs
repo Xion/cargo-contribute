@@ -12,11 +12,12 @@ use hyper::client::{Client as HyperClient, Connect};
 use itertools::Itertools;
 use log::LogLevel::*;
 use rand::{Rng, thread_rng};
+use regex::Regex;
 use tokio_core::reactor::Handle;
 
 use ::USER_AGENT;
 use util::{https_client, HttpsConnector};
-use super::cargo_toml;
+use super::cargo_toml::{self, CrateLocation, Dependency};
 use super::crates_io::{self, Client as CratesIoClient};
 use super::model::{Issue, Repository};
 
@@ -74,23 +75,18 @@ impl SuggestedIssuesProducer {
             .collect_vec();
         thread_rng().shuffle(&mut deps);
 
-        // Read the package/repository entries from the manifests of dependent crates
-        // by talking to crates.io.
+        // Determine the GitHub repositories corresponding to dependent crates.
+        // In most cases, this means read the package/repository entries
+        // from the manifests of those crates by talking to crates.io.
         let repos = {
             // TODO: instead of querying crates.io immediately, look through the local Cargo cache first
             // (~/.cargo/registry/src/**/*) which most likely contains the dep sources already
             let crates_io = self.crates_io.clone();
             stream::iter_ok(deps)
                 .and_then(move |dep| {
-                    // TODO: consider looking up only the particular version of the dep
-                    // that was specified in the manifest (if it indeed was)
-                    crates_io.lookup_crate(dep.name().to_owned()).map_err(Error::CratesIo)
+                    repo_for_dependency(&crates_io, &dep).map_err(Error::CratesIo)
                 })
-                .filter_map(|opt_c| opt_c)
-                .filter_map(|crate_| {
-                    crate_.metadata.repo_url.as_ref()
-                        .and_then(|url| Repository::from_url(url))
-                })
+                .filter_map(|opt_repo| opt_repo)
         };
 
         // For each repo, search for suitable issues and stream them in a round-robin fashion
@@ -130,6 +126,35 @@ pub enum Error {
     CratesIo(crates_io::Error),
     #[error(msg = "error contacting github.com")]
     GitHub(hubcaps::Error),
+}
+
+
+fn repo_for_dependency<C: Clone + Connect>(
+    crates_io: &CratesIoClient<C>, dep: &Dependency
+) -> Box<Future<Item=Option<Repository>, Error=crates_io::Error>> {
+    lazy_static! {
+        static ref GITHUB_GIT_URL_RE: Regex = Regex::new(
+            r#"https://github.com/(?P<owner>\w+)/(?P<name>[^.]+).git"#
+        ).unwrap();
+    }
+
+    match dep.location() {
+        &CrateLocation::Registry{..} => Box::new(
+            // TODO: consider looking up only the particular version of the dep
+            // that was specified in the manifest (if it indeed was)
+            crates_io.lookup_crate(dep.name().to_owned()).map(|opt_c| {
+                opt_c.and_then(|crate_| {
+                    crate_.metadata.repo_url.as_ref()
+                        .and_then(|url| Repository::from_url(url))
+                })
+            })
+        ),
+        &CrateLocation::Git{ref url} => Box::new(future::ok(
+            GITHUB_GIT_URL_RE.captures(url)
+                .map(|caps| Repository::new(&caps["owner"], &caps["name"]))
+        )),
+        _ => panic!("repo_for_dependency() encountered unexpected {:?}", dep.location()),
+    }
 }
 
 
@@ -227,12 +252,26 @@ fn canonicalize_label(label: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{canonicalize_label, ISSUE_LABELS};
+    use tokio_core::reactor::Core;
+    use issues::cargo_toml::Dependency;
+    use issues::crates_io::Client as CratesIoClient;
+    use issues::model::Repository;
+    use super::{canonicalize_label, ISSUE_LABELS, repo_for_dependency};
 
     #[test]
     fn issue_labels_are_canonical() {
         for &label in ISSUE_LABELS.iter() {
             assert!(label == &canonicalize_label(label));
         }
+    }
+
+    #[test]
+    fn repo_for_github_git_dependency() {
+        let mut core = Core::new().unwrap();
+        let crates_io = CratesIoClient::new(&core.handle());
+
+        let dep = Dependency::with_git_url("unused", "https://github.com/Xion/gisht.git");
+        let repo = core.run(repo_for_dependency(&crates_io, &dep)).unwrap();
+        assert_eq!(Some(Repository{owner: "Xion".into(), name: "gisht".into()}), repo);
     }
 }

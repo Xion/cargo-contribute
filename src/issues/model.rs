@@ -44,7 +44,7 @@ impl fmt::Display for Issue {
 
 
 /// Represents a GitHub repository.
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub struct Repository {
     pub owner: String,
     pub name: String,
