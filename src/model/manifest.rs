@@ -4,6 +4,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use semver::VersionReq;
 use serde::de::Error;
 use toml::{self, Value as Toml};
 
@@ -52,11 +53,19 @@ pub struct Dependency {
 impl Dependency {
     #[inline]
     pub fn with_version<N, V>(name: N, version: V) -> Self
-        where N: ToString, V: ToString
+        where N: ToString, V: AsRef<str>
     {
+        let version = version.as_ref();
         Dependency{
             name: name.to_string(),
-            location: CrateLocation::Registry{version: version.to_string()},
+            location: CrateLocation::Registry{
+                version: if version == "*" {
+                    VersionReq::any()
+                } else {
+                    // TODO: some error handling here
+                    VersionReq::parse(version.as_ref()).unwrap()
+                },
+            },
         }
     }
 
@@ -147,7 +156,7 @@ impl fmt::Display for Dependency {
 #[derive(Debug)]
 pub enum CrateLocation {
     /// Crate is hosted on crates.io.
-    Registry{ version: String },
+    Registry{ version: VersionReq },
     /// Crate is available under given filesystem path.
     Filesystem{ path: PathBuf },
     /// Crate is kept in a Git repository under given URL.

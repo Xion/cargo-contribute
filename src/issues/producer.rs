@@ -13,6 +13,7 @@ use itertools::Itertools;
 use log::LogLevel::*;
 use rand::{Rng, thread_rng};
 use regex::Regex;
+use semver::{Version, VersionReq};
 use tokio_core::reactor::Handle;
 
 use ::USER_AGENT;
@@ -179,10 +180,10 @@ fn repo_for_dependency<C: Clone + Connect>(
     }
 }
 
-fn find_cached_manifest<N, V>(crate_: N, version: V) -> Option<Package>
-    where N: AsRef<str>, V: AsRef<str>
+fn find_cached_manifest<N>(crate_: N, version: &VersionReq) -> Option<Package>
+    where N: AsRef<str>
 {
-    let (crate_, version) = (crate_.as_ref(), version.as_ref());
+    let crate_ = crate_.as_ref();
     trace!("Trying to find cached manifest of crate {}-{}", crate_, version);
 
     let cache_root = match CARGO_REGISTRY_CACHE_DIR.as_ref() {
@@ -193,24 +194,27 @@ fn find_cached_manifest<N, V>(crate_: N, version: V) -> Option<Package>
         }
     };
 
-    // Find all cached versions of the crate and pick the exact one
-    // or the newest one (if dependency version is unspecified).
+    // Find all cached versions of the crate and pick the newest matching one.
     let pattern = format!("{}/*/{}-*", cache_root.display(), crate_);
     trace!("Globbing with pattern: {}", pattern);
     let manifest_path = glob(&pattern).unwrap()
         .filter_map(Result::ok)
         .filter_map(|dir| {
-            let vers = dir.file_stem().unwrap().to_str().unwrap()
+            // Extract the cached crate and match it with the dependency requirement.
+            let version_suffix = dir.file_name().unwrap().to_str().unwrap()
                 .rsplit("-").next().unwrap();
-            // TODO: use semver-based comparison instead of an exact match
-            if version == "*" || vers == version {
-                Some((vers.to_owned(), dir.to_owned()))
+            let cached_version = Version::parse(version_suffix).unwrap_or_else(|e| {
+                panic!("Failed to parse crate version `{}` from cached path {}: {}",
+                    version_suffix, dir.display(), e);
+            });
+            if version.matches(&cached_version) {
+                Some((cached_version, dir.to_owned()))
             } else {
                 None
             }
         })
-        // TODO: also use semver-aware sorting, since a string one is kind of a hack
-        // (it works fine for single digit x.y.z though)
+        // TODO: use sorted_by_key() when the PR is merged:
+        // https://github.com/bluss/rust-itertools/pull/251
         .sorted_by(|&(ref v1, _), &(ref v2, _)| v1.cmp(v2)).into_iter().map(|(_, d)| d)
         .next()?
         .join("Cargo.toml");

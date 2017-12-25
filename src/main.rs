@@ -21,6 +21,7 @@
 #[macro_use] extern crate macro_attr;
              extern crate rand;
              extern crate regex;
+             extern crate semver;
              extern crate serde;
 #[macro_use] extern crate serde_derive;
              extern crate serde_json;

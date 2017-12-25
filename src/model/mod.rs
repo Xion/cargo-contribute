@@ -1,4 +1,6 @@
-//! MOdule with data types used by the application.
+//! Module with data types used by the application.
+
+#![allow(dead_code)]
 
 mod github;
 mod manifest;
