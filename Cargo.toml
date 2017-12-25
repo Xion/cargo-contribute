@@ -1,6 +1,6 @@
 [package]
 name = "cargo-contribute"
-version = "0.2.0"
+version = "0.2.1"
 description = "Cargo subcommand for contributing to development of your dependencies"
 authors = ["Karol Kuczmarski <karol.kuczmarski@gmail.com>"]
 keywords = [
@@ -31,8 +31,7 @@ hyper = "0.11"
 hyper-tls = "0.1"
 isatty = "0.1.1"
 itertools = "0.7"
-# lazy_static = "0.2"
-lazy_static = "*"
+lazy_static = "0.2"
 log = "0.3"
 macro-attr = "0.2"
 maplit = "0.1"
