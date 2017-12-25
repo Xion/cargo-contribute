@@ -72,10 +72,7 @@ impl SuggestedIssuesProducer {
         let manifest_path = manifest_path.as_ref();
         debug!("Suggesting dependency issues for manifest path {}", manifest_path.display());
 
-        let mut deps = cargo_toml::list_dependencies(manifest_path)?.into_iter()
-            // TODO: use the local Cargo.toml for path=... deps instead of omitting them
-            .filter(|d| d.location().is_registry())  // retain only crates.io deps
-            .collect_vec();
+        let mut deps = cargo_toml::list_dependencies(manifest_path)?;
         thread_rng().shuffle(&mut deps);
 
         // Determine the GitHub repositories corresponding to dependent crates.
@@ -160,7 +157,7 @@ fn repo_for_dependency<C: Clone + Connect>(
                     package.repository.as_ref().and_then(Repository::from_url)
                 ));
             }
-            debug!("Dependency {}-{} not found in local Cargo cache", dep.name(), version);
+            debug!("Dependency {}={} not found in local Cargo cache", dep.name(), version);
             Box::new(
                 crates_io.lookup_crate(dep.name().to_owned()).map(|opt_c| {
                     // Some crates list their GitHub URLs only as "homepage" in the manifest,
@@ -171,12 +168,24 @@ fn repo_for_dependency<C: Clone + Connect>(
                 })
             )
         }
+        &CrateLocation::Filesystem{ref path} => Box::new(future::ok({
+            let manifest_path = path.join("Cargo.toml");
+            cargo_toml::read_package(manifest_path)
+                .map_err(|e| {
+                    warn!("Error loading manifest of local dependency `{}`: {}",
+                        dep.name(), e); e
+                }).ok()
+                .and_then(|p| {
+                    // Like above, try `repository` followed by `homepage`.
+                    p.repository.as_ref().and_then(Repository::from_url)
+                        .or_else(|| p.homepage.as_ref().and_then(Repository::from_url))
+                })
+        })),
         &CrateLocation::Git{ref url} => Box::new(future::ok(
             GITHUB_GIT_HTTPS_URL_RE.captures(url)
                 .or_else(|| GITHUB_GIT_SSH_URL_RE.captures(url))
                 .map(|caps| Repository::new(&caps["owner"], &caps["name"]))
         )),
-        _ => panic!("repo_for_dependency() encountered unexpected {:?}", dep.location()),
     }
 }
 
@@ -184,7 +193,7 @@ fn find_cached_manifest<N>(crate_: N, version: &VersionReq) -> Option<Package>
     where N: AsRef<str>
 {
     let crate_ = crate_.as_ref();
-    trace!("Trying to find cached manifest of crate {}-{}", crate_, version);
+    trace!("Trying to find cached manifest of crate {}={}", crate_, version);
 
     let cache_root = match CARGO_REGISTRY_CACHE_DIR.as_ref() {
         Some(cr) => cr,
@@ -200,7 +209,7 @@ fn find_cached_manifest<N>(crate_: N, version: &VersionReq) -> Option<Package>
     let manifest_path = glob(&pattern).unwrap()
         .filter_map(Result::ok)
         .filter_map(|dir| {
-            // Extract the cached crate and match it with the dependency requirement.
+            // Extract the cached crate version and match it with the dependency requirement.
             let version_suffix = dir.file_name().unwrap().to_str().unwrap()
                 .rsplit("-").next().unwrap();
             let cached_version = Version::parse(version_suffix).unwrap_or_else(|e| {
@@ -216,18 +225,20 @@ fn find_cached_manifest<N>(crate_: N, version: &VersionReq) -> Option<Package>
         // TODO: use sorted_by_key() when the PR is merged:
         // https://github.com/bluss/rust-itertools/pull/251
         .sorted_by(|&(ref v1, _), &(ref v2, _)| v1.cmp(v2)).into_iter().map(|(_, d)| d)
-        .next()?
+        .next().or_else(|| {
+            debug!("Crate {}-{} not found in Cargo cache", crate_, version); None
+        })?
         .join("Cargo.toml");
 
     if manifest_path.exists() {
         debug!("Cached manifest found at {}", manifest_path.display());
     } else {
-        warn!("Found cached crate {}-{} but it's missing its manifest", crate_, version);
+        warn!("Found cached crate {}={} but it's missing its manifest", crate_, version);
         return None;
     }
 
     cargo_toml::read_package(manifest_path).map_err(|e| {
-        warn!("Error while reading cached manifest of {}-{}: {}", crate_, version, e)
+        warn!("Error while reading cached manifest of {}={}: {}", crate_, version, e)
     }).ok()
 }
 
