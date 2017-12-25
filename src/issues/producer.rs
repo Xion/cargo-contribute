@@ -4,10 +4,8 @@ use std::fmt;
 use std::path::Path;
 
 use futures::{future, Future, stream, Stream as StdStream};
-use hubcaps::{self, Credentials, Error as HubcapsError, Github, SortDirection};
-use hubcaps::errors::ErrorKind;
-use hubcaps::search::{IssuesItem, IssuesSort, SearchIssuesOptions};
-use hyper::StatusCode;
+use hubcaps::{self, Credentials, Error as HubcapsError, Github};
+use hubcaps::search::IssuesItem;
 use hyper::client::{Client as HyperClient, Connect};
 use itertools::Itertools;
 use log::LogLevel::*;
@@ -20,6 +18,7 @@ use model::{CrateLocation, Dependency, Issue, Repository};
 use util::{https_client, HttpsConnector};
 use super::cargo_toml;
 use super::crates_io::{self, Client as CratesIoClient};
+use super::github::pending_issues;
 
 
 type Stream<T> = Box<StdStream<Item=T, Error=Error>>;
@@ -93,7 +92,7 @@ impl SuggestedIssuesProducer {
         // (via this hideous amalgamation of fold() + flatten_stream()).
         Ok(Box::new({
             let github = self.github.clone();
-            repos.map(move |repo| repo_issues(&github, repo).map_err(Error::GitHub))
+            repos.map(move |repo| suggest_repo_issues(&github, repo).map_err(Error::GitHub))
                 // Yes, each cast and each turbofish is necessary here -_-
                 .fold(Box::new(stream::empty()) as Stream<IssuesItem>,
                     |acc, x| future::ok::<_, Error>(
@@ -129,6 +128,8 @@ pub enum Error {
 }
 
 
+// Finding repositories of crate dependencies
+
 lazy_static! {
     static ref GITHUB_GIT_HTTPS_URL_RE: Regex = Regex::new(
         r#"https://github\.com/(?P<owner>\w+)/(?P<name>[^.]+)\.git"#
@@ -161,6 +162,8 @@ fn repo_for_dependency<C: Clone + Connect>(
 }
 
 
+// Searching suitable issues on GitHub
+
 const GITHUB_API_ROOT: &'static str = "https://api.github.com";
 
 /// Issue labels that we're looking for when suggesting issues.
@@ -173,72 +176,20 @@ const ISSUE_LABELS: &'static [&'static str] = &[
 ];
 
 /// Provide suggested issues specifically from given GitHub repo.
-fn repo_issues<C: Clone + Connect>(
+fn suggest_repo_issues<C: Clone + Connect>(
     github: &Github<C>, repo: Repository
 ) -> Box<StdStream<Item=IssuesItem, Error=HubcapsError>> {
-    let github = github.clone();
-
-    debug!("Querying for issues in {:?}", repo);
-    let query = [
-        &format!("repo:{}/{}", repo.owner, repo.name),
-        "type:issue",
-        "state:open",
-        "no:assignee",
-    ].iter().join(" ");
-    trace!("Search query: {}", query);
+    let result = Box::new(
+        // Filter pending issues to match one of the labels we're looking for.
+        pending_issues(github, repo).filter(|ii| ii.labels.iter().any(|l| {
+            let label = canonicalize_label(&l.name);
+            ISSUE_LABELS.contains(&label.as_str())
+        }))
+    );
     if log_enabled!(Trace) {
         trace!("Accepted issue labels: {}", ISSUE_LABELS.iter().format(", "));
     }
-
-    let options = SearchIssuesOptions::builder()
-        // Return the maximum number of results possible
-        // (as per https://developer.github.com/v3/search/#search-issues).
-        .per_page(100)
-        // Surface most recently updated issues first.
-        .sort(IssuesSort::Updated)
-        .order(SortDirection::Desc)
-        .build();
-
-    Box::new(
-        github.search().issues().iter(query, &options)
-            // We may encounter some HTTP errors when doing the search
-            // which we translate to an early stream termination via a .then() + take_while() trick.
-            .then(move |res| match res {
-                Ok(issue_item) => Ok(Some(issue_item)),
-                Err(HubcapsError(ErrorKind::Fault{ code, error }, _)) => {
-                    debug!("HTTP {} error for repository {}/{}: {:?}",
-                        code, repo.owner, repo.name, error);
-                    match code {
-                        // GitHub returns 422 Unprocessable Entity if the repo doesn't exist at all.
-                        // This isn't really an error for us (since crate manifests can list invalid
-                        // or outdated repos), so we terminate the stream early if it happens.
-                        StatusCode::UnprocessableEntity => {
-                            warn!("Cannot access repository {}: {}", repo, code);
-                            Ok(None)
-                        }
-                        // If we hit HTTP 403, that probably means we've reached the GitHub rate limit.
-                        // Not much else we can do here, so we just stop poking it any more.
-                        StatusCode::Forbidden => {
-                            warn!("Possible rate limit hit when searching repository {}: {}",
-                                repo, error.message);
-                            if let Some(ref errors) = error.errors {
-                                debug!("HTTP 403 error details: {:?}", errors.iter().format(", "));
-                            }
-                            Ok(None)
-                        }
-                        // For other HTTP faults, reconstruct the original error.
-                        _ => Err(HubcapsError::from_kind(ErrorKind::Fault{code, error})),
-                    }
-                }
-                Err(e) => Err(e),
-            })
-            .take_while(|opt_ii| future::ok(opt_ii.is_some())).map(Option::unwrap)
-            // Filter issues to match one of the labels we're looking for.
-            .filter(|ii| ii.labels.iter().any(|l| {
-                let label = canonicalize_label(&l.name);
-                ISSUE_LABELS.contains(&label.as_str())
-            }))
-    )
+    result
 }
 
 /// Convert a GitHub label to its "canonical" form for comparison purposes.
