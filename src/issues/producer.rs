@@ -1,9 +1,11 @@
 //! Module implementing the suggested issues producer.
 
+use std::env;
 use std::fmt;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use futures::{future, Future, stream, Stream as StdStream};
+use glob::glob;
 use hubcaps::{self, Credentials, Error as HubcapsError, Github};
 use hubcaps::search::IssuesItem;
 use hyper::client::{Client as HyperClient, Connect};
@@ -14,7 +16,7 @@ use regex::Regex;
 use tokio_core::reactor::Handle;
 
 use ::USER_AGENT;
-use model::{CrateLocation, Dependency, Issue, Repository};
+use model::{CrateLocation, Dependency, Issue, Package, Repository};
 use util::{https_client, HttpsConnector};
 use super::cargo_toml;
 use super::crates_io::{self, Client as CratesIoClient};
@@ -70,6 +72,7 @@ impl SuggestedIssuesProducer {
         debug!("Suggesting dependency issues for manifest path {}", manifest_path.display());
 
         let mut deps = cargo_toml::list_dependencies(manifest_path)?.into_iter()
+            // TODO: use the local Cargo.toml for path=... deps instead of omitting them
             .filter(|d| d.location().is_registry())  // retain only crates.io deps
             .collect_vec();
         thread_rng().shuffle(&mut deps);
@@ -78,8 +81,6 @@ impl SuggestedIssuesProducer {
         // In most cases, this means read the package/repository entries
         // from the manifests of those crates by talking to crates.io.
         let repos = {
-            // TODO: instead of querying crates.io immediately, look through the local Cargo cache first
-            // (~/.cargo/registry/src/**/*) which most likely contains the dep sources already
             let crates_io = self.crates_io.clone();
             stream::iter_ok(deps)
                 .and_then(move |dep| {
@@ -139,19 +140,36 @@ lazy_static! {
     ).unwrap();
 }
 
+lazy_static! {
+    // TODO: a dot-dir in $HOME probably doesn't work on Windows,
+    // so we likely need to look in AppData or similar instead
+    static ref CARGO_REGISTRY_CACHE_DIR: Option<PathBuf> = env::home_dir()
+        .map(|home| home.join(".cargo/registry/src"));
+}
+
 fn repo_for_dependency<C: Clone + Connect>(
     crates_io: &CratesIoClient<C>, dep: &Dependency
 ) -> Box<Future<Item=Option<Repository>, Error=crates_io::Error>> {
     match dep.location() {
-        &CrateLocation::Registry{..} => Box::new(
-            crates_io.lookup_crate(dep.name().to_owned()).map(|opt_c| {
-                // Some crates list their GitHub URLs only as "homepage" in the manifest,
-                // so we'll try that in addition to the more appropriate "repository".
-                let crate_ = opt_c?;
-                crate_.metadata.repo_url.as_ref().and_then(Repository::from_url)
-                    .or_else(|| Repository::from_url(crate_.metadata.homepage_url.as_ref()?))
-            })
-        ),
+        &CrateLocation::Registry{ref version} => {
+            // Check the local Cargo cache first for the dependent crate's manifest.
+            // Otherwise, fall back to querying crates.io.
+            if let Some(package) = find_cached_manifest(dep.name(), version) {
+                return Box::new(future::ok(
+                    package.repository.as_ref().and_then(Repository::from_url)
+                ));
+            }
+            debug!("Dependency {}-{} not found in local Cargo cache", dep.name(), version);
+            Box::new(
+                crates_io.lookup_crate(dep.name().to_owned()).map(|opt_c| {
+                    // Some crates list their GitHub URLs only as "homepage" in the manifest,
+                    // so we'll try that in addition to the more appropriate "repository".
+                    let crate_ = opt_c?;
+                    crate_.metadata.repo_url.as_ref().and_then(Repository::from_url)
+                        .or_else(|| Repository::from_url(crate_.metadata.homepage_url.as_ref()?))
+                })
+            )
+        }
         &CrateLocation::Git{ref url} => Box::new(future::ok(
             GITHUB_GIT_HTTPS_URL_RE.captures(url)
                 .or_else(|| GITHUB_GIT_SSH_URL_RE.captures(url))
@@ -159,6 +177,54 @@ fn repo_for_dependency<C: Clone + Connect>(
         )),
         _ => panic!("repo_for_dependency() encountered unexpected {:?}", dep.location()),
     }
+}
+
+fn find_cached_manifest<N, V>(crate_: N, version: V) -> Option<Package>
+    where N: AsRef<str>, V: AsRef<str>
+{
+    let (crate_, version) = (crate_.as_ref(), version.as_ref());
+    trace!("Trying to find cached manifest of crate {}-{}", crate_, version);
+
+    let cache_root = match CARGO_REGISTRY_CACHE_DIR.as_ref() {
+        Some(cr) => cr,
+        None => {
+            warn!("Cannot find Cargo's registry cache directory.");
+            return None;
+        }
+    };
+
+    // Find all cached versions of the crate and pick the exact one
+    // or the newest one (if dependency version is unspecified).
+    let pattern = format!("{}/*/{}-*", cache_root.display(), crate_);
+    trace!("Globbing with pattern: {}", pattern);
+    let manifest_path = glob(&pattern).unwrap()
+        .filter_map(Result::ok)
+        .filter_map(|dir| {
+            let vers = dir.file_stem().unwrap().to_str().unwrap()
+                .rsplit("-").next().unwrap();
+            // TODO: use semver-based comparison instead of an exact match
+            if version == "*" || vers == version {
+                Some((vers.to_owned(), dir.to_owned()))
+            } else {
+                None
+            }
+        })
+        // TODO: also use semver-aware sorting, since a string one is kind of a hack
+        // (it works fine for single digit x.y.z though)
+        .sorted_by(|&(ref v1, _), &(ref v2, _)| v1.cmp(v2)).into_iter().map(|(_, d)| d)
+        .next()?
+        .join("Cargo.toml");
+
+    if manifest_path.exists() {
+        debug!("Cached manifest found at {}", manifest_path.display());
+    } else {
+        warn!("Found cached crate {}-{} but it's missing its manifest", crate_, version);
+        return None;
+    }
+
+    cargo_toml::read_package(manifest_path).map_err(|e| {
+        warn!("Error while reading cached manifest of {}-{}: {}", crate_, version, e)
+    }).ok()
 }
 
 

@@ -10,6 +10,7 @@
 #[macro_use] extern crate enum_derive;
              extern crate exitcode;
              extern crate futures;
+             extern crate glob;
              extern crate hubcaps;
              extern crate hyper;
              extern crate hyper_tls;
