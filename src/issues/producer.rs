@@ -16,9 +16,9 @@ use regex::Regex;
 use tokio_core::reactor::Handle;
 
 use ::USER_AGENT;
-use model::{Issue, Repository};
+use model::{CrateLocation, Dependency, Issue, Repository};
 use util::{https_client, HttpsConnector};
-use super::cargo_toml::{self, CrateLocation, Dependency};
+use super::cargo_toml;
 use super::crates_io::{self, Client as CratesIoClient};
 
 
@@ -256,9 +256,8 @@ fn canonicalize_label(label: &str) -> String {
 #[cfg(test)]
 mod tests {
     use tokio_core::reactor::Core;
-    use issues::cargo_toml::Dependency;
     use issues::crates_io::Client as CratesIoClient;
-    use model::Repository;
+    use model::{Dependency, Repository};
     use super::{canonicalize_label, ISSUE_LABELS, repo_for_dependency};
 
     #[test]
