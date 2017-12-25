@@ -16,10 +16,10 @@ use regex::Regex;
 use tokio_core::reactor::Handle;
 
 use ::USER_AGENT;
+use model::{Issue, Repository};
 use util::{https_client, HttpsConnector};
 use super::cargo_toml::{self, CrateLocation, Dependency};
 use super::crates_io::{self, Client as CratesIoClient};
-use super::model::{Issue, Repository};
 
 
 type Stream<T> = Box<StdStream<Item=T, Error=Error>>;
@@ -258,7 +258,7 @@ mod tests {
     use tokio_core::reactor::Core;
     use issues::cargo_toml::Dependency;
     use issues::crates_io::Client as CratesIoClient;
-    use issues::model::Repository;
+    use model::Repository;
     use super::{canonicalize_label, ISSUE_LABELS, repo_for_dependency};
 
     #[test]

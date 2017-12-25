@@ -16,8 +16,8 @@ use conv::TryFrom;
 use itertools::Itertools;
 use strfmt::FmtError;
 
+use model::{Issue, Repository};
 use super::{ISSUE_FORMATTERS, NAME, VERSION, format_issue};
-use issues::{Issue, Repository};
 
 
 // Parse command line arguments and return `Options` object.

@@ -42,6 +42,7 @@ mod args;
 mod ext;
 mod issues;
 mod logging;
+mod model;
 mod util;
 
 
@@ -57,7 +58,8 @@ use strfmt::{FmtError, strfmt};
 use tokio_core::reactor::Core;
 
 use args::{ArgsError, Options};
-use issues::{Issue, SuggestedIssuesProducer};
+use issues::SuggestedIssuesProducer;
+use model::Issue;
 
 
 lazy_static! {
