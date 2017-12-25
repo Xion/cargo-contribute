@@ -131,10 +131,10 @@ pub enum Error {
 
 lazy_static! {
     static ref GITHUB_GIT_HTTPS_URL_RE: Regex = Regex::new(
-        r#"https://github.com/(?P<owner>\w+)/(?P<name>[^.]+).git"#
+        r#"https://github\.com/(?P<owner>\w+)/(?P<name>[^.]+)\.git"#
     ).unwrap();
     static ref GITHUB_GIT_SSH_URL_RE: Regex = Regex::new(
-        r#"git@github.com:(?P<owner>\w+)/(?P<name>[^.]+).git"#
+        r#"git@github\.com:(?P<owner>\w+)/(?P<name>[^.]+)\.git"#
     ).unwrap();
 }
 
@@ -144,10 +144,11 @@ fn repo_for_dependency<C: Clone + Connect>(
     match dep.location() {
         &CrateLocation::Registry{..} => Box::new(
             crates_io.lookup_crate(dep.name().to_owned()).map(|opt_c| {
-                opt_c.and_then(|crate_| {
-                    crate_.metadata.repo_url.as_ref()
-                        .and_then(|url| Repository::from_url(url))
-                })
+                // Some crates list their GitHub URLs only as "homepage" in the manifest,
+                // so we'll try that in addition to the more appropriate "repository".
+                let crate_ = opt_c?;
+                crate_.metadata.repo_url.as_ref().and_then(Repository::from_url)
+                    .or_else(|| Repository::from_url(crate_.metadata.homepage_url.as_ref()?))
             })
         ),
         &CrateLocation::Git{ref url} => Box::new(future::ok(

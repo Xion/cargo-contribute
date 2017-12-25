@@ -59,13 +59,19 @@ impl Repository {
         }
     }
 
-    pub fn from_url(repo_url: &str) -> Option<Self> {
-        let parsed = Url::parse(repo_url).ok()?;
+    /// Determine the repository from given GitHub URL.
+    pub fn from_url<U: AsRef<str>>(repo_url: U) -> Option<Self> {
+        let parsed = Url::parse(repo_url.as_ref()).ok()?;
         if parsed.host() == Some(Host::Domain(GITHUB_HOST)) {
             let segs = parsed.path_segments().map(|ps| ps.collect()).unwrap_or_else(Vec::new);
             if segs.len() == 2 {
-                // github.com/$OWNER/$REPO
-                return Some(Repository::new(segs[0], segs[1]));
+                // github.com/$OWNER/$NAME (project homepage)
+                // or github.com/$OWNER/$NAME.git (direct Git repo URL)
+                let owner = segs[0];
+                let name = segs[1].trim_right_matches(".git");
+                let repo = Repository::new(owner, name);
+                trace!("URL {} identified as GitHub repo {}", parsed, repo);
+                return Some(repo);
             }
         }
         None
@@ -75,5 +81,25 @@ impl Repository {
 impl fmt::Display for Repository {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "{}/{}", self.owner, self.name)
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::Repository;
+
+    #[test]
+    fn repository_from_project_url() {
+        let repo = Repository::from_url("https://github.com/Xion/gisht").unwrap();
+        assert_eq!("Xion", repo.owner);
+        assert_eq!("gisht", repo.name);
+    }
+
+    #[test]
+    fn repository_from_git_url() {
+        let repo = Repository::from_url("https://github.com/Xion/callee.git").unwrap();
+        assert_eq!("Xion", repo.owner);
+        assert_eq!("callee", repo.name);
     }
 }
