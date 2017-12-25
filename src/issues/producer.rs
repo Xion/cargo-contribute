@@ -129,19 +129,20 @@ pub enum Error {
 }
 
 
+lazy_static! {
+    static ref GITHUB_GIT_HTTPS_URL_RE: Regex = Regex::new(
+        r#"https://github.com/(?P<owner>\w+)/(?P<name>[^.]+).git"#
+    ).unwrap();
+    static ref GITHUB_GIT_SSH_URL_RE: Regex = Regex::new(
+        r#"git@github.com:(?P<owner>\w+)/(?P<name>[^.]+).git"#
+    ).unwrap();
+}
+
 fn repo_for_dependency<C: Clone + Connect>(
     crates_io: &CratesIoClient<C>, dep: &Dependency
 ) -> Box<Future<Item=Option<Repository>, Error=crates_io::Error>> {
-    lazy_static! {
-        static ref GITHUB_GIT_URL_RE: Regex = Regex::new(
-            r#"https://github.com/(?P<owner>\w+)/(?P<name>[^.]+).git"#
-        ).unwrap();
-    }
-
     match dep.location() {
         &CrateLocation::Registry{..} => Box::new(
-            // TODO: consider looking up only the particular version of the dep
-            // that was specified in the manifest (if it indeed was)
             crates_io.lookup_crate(dep.name().to_owned()).map(|opt_c| {
                 opt_c.and_then(|crate_| {
                     crate_.metadata.repo_url.as_ref()
@@ -150,7 +151,8 @@ fn repo_for_dependency<C: Clone + Connect>(
             })
         ),
         &CrateLocation::Git{ref url} => Box::new(future::ok(
-            GITHUB_GIT_URL_RE.captures(url)
+            GITHUB_GIT_HTTPS_URL_RE.captures(url)
+                .or_else(|| GITHUB_GIT_SSH_URL_RE.captures(url))
                 .map(|caps| Repository::new(&caps["owner"], &caps["name"]))
         )),
         _ => panic!("repo_for_dependency() encountered unexpected {:?}", dep.location()),
@@ -266,11 +268,21 @@ mod tests {
     }
 
     #[test]
-    fn repo_for_github_git_dependency() {
+    fn repo_for_github_https_git_dependency() {
         let mut core = Core::new().unwrap();
         let crates_io = CratesIoClient::new(&core.handle());
 
         let dep = Dependency::with_git_url("unused", "https://github.com/Xion/gisht.git");
+        let repo = core.run(repo_for_dependency(&crates_io, &dep)).unwrap();
+        assert_eq!(Some(Repository{owner: "Xion".into(), name: "gisht".into()}), repo);
+    }
+
+    #[test]
+    fn repo_for_github_ssh_git_dependency() {
+        let mut core = Core::new().unwrap();
+        let crates_io = CratesIoClient::new(&core.handle());
+
+        let dep = Dependency::with_git_url("unused", "git@github.com:Xion/gisht.git");
         let repo = core.run(repo_for_dependency(&crates_io, &dep)).unwrap();
         assert_eq!(Some(Repository{owner: "Xion".into(), name: "gisht".into()}), repo);
     }
