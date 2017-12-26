@@ -107,7 +107,7 @@ dependencies = [
 
 [[package]]
 name = "cargo-contribute"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "ansi_term 0.9.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
