@@ -241,8 +241,10 @@ fn validate_format(format: String) -> Result<(), String> {
         static ref EXAMPLE_ISSUE: Issue = Issue{
             repo: Repository::new("Octocat", "hello-world"),
             number: 42,
-            title: "Optimize reticulating spines".into(),
             url: "http://example.com/42".into(),
+            title: "Optimize reticulating spines".into(),
+            body: "...".into(),
+            comment_count: 0,
         };
     }
     format_issue(&format, &*EXAMPLE_ISSUE).map(|_| ()).map_err(|e| match e {

@@ -3,7 +3,7 @@
 use std::str::FromStr;
 
 use chrono::{DateTime, Utc};
-use futures::{future, Future as StdFuture, IntoFuture};
+use futures::{future, Future as StdFuture};
 use hyper::{self, StatusCode, Uri};
 use hyper::client::{Connect, HttpConnector};
 use serde_json;
@@ -98,9 +98,7 @@ impl<C: Clone + Connect> Client<C> {
                 debug!("Successful response from crates.io for `{}`", id);
                 resp.body().into_bytes().map_err(Error::Http)
                     .and_then(|bytes| {
-                        serde_json::from_reader(&bytes[..])
-                            .map(Some).map_err(Error::Json)
-                            .into_future()
+                        serde_json::from_reader(&bytes[..]).map(Some).map_err(Error::Json)
                     }).into_box()
             } else if status == StatusCode::NotFound {
                 warn!("Crate `{}` not found on crates.io", id);

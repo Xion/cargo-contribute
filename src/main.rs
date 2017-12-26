@@ -190,11 +190,15 @@ fn format_issue(fmt: &str, issue: &Issue) -> Result<String, FmtError> {
 }
 
 lazy_static! {
+    // TODO: add a short description for each formatter to be printed in --help
     static ref ISSUE_FORMATTERS: HashMap<&'static str, fn(&Issue) -> Cow<str>> = hashmap!{
         "owner" => (|issue| issue.repo.owner.as_str().into()) as fn(&Issue) -> Cow<str>,
         "project" => |issue| issue.repo.name.as_str().into(),
         "repo" => |issue| format!("{}", issue.repo).into(),
         "number" => |issue| format!("{}", issue.number).into(),
         "url" => |issue| issue.url.as_str().into(),
+        "title" => |issue| issue.title.as_str().into(),
+        "body" => |issue| issue.body.as_str().into(),
+        "comments" => |issue| format!("{}", issue.comment_count).into(),
     };
 }

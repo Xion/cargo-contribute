@@ -56,11 +56,16 @@ pub struct Issue {
     /// GitHub repository where this issue comes from.
     pub repo: Repository,
     /// Issue number.
-    pub number: usize,
-    /// Issue title.
-    pub title: String,
+    pub number: u64,
     /// URL to the HTML page of the issue.
     pub url: String,
+    /// Issue title.
+    pub title: String,
+    /// Issue text (body of the first comment).
+    pub body: String,
+    /// Number of comments on the issue.
+    pub comment_count: usize,
+
 }
 
 impl From<IssuesItem> for Issue {
@@ -70,9 +75,11 @@ impl From<IssuesItem> for Issue {
         let (project, owner) = input.repo_tuple();
         Issue{
             repo: Repository::new(owner, project),
-            number: input.number as usize,
-            title: input.title,
+            number: input.number,
             url: input.html_url,
+            title: input.title,
+            body: input.body.unwrap_or_else(String::new),
+            comment_count: input.comments as usize,
         }
     }
 }
