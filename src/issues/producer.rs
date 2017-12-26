@@ -79,10 +79,11 @@ impl SuggestedIssuesProducer {
         // In most cases, this means read the package/repository entries
         // from the manifests of those crates by talking to crates.io.
         let repos = {
+            let manifest_path = manifest_path.to_owned();
             let crates_io = self.crates_io.clone();
             stream::iter_ok(deps)
                 .and_then(move |dep| {
-                    repo_for_dependency(&crates_io, &dep).map_err(Error::CratesIo)
+                    repo_for_dependency(&manifest_path, &crates_io, &dep).map_err(Error::CratesIo)
                 })
                 .filter_map(|opt_repo| opt_repo)
         };
@@ -145,8 +146,8 @@ lazy_static! {
         .map(|home| home.join(".cargo/registry/src"));
 }
 
-fn repo_for_dependency<C: Clone + Connect>(
-    crates_io: &CratesIoClient<C>, dep: &Dependency
+fn repo_for_dependency<P: AsRef<Path>, C: Clone + Connect>(
+    manifest_path: P, crates_io: &CratesIoClient<C>, dep: &Dependency
 ) -> Box<Future<Item=Option<Repository>, Error=crates_io::Error>> {
     match dep.location() {
         &CrateLocation::Registry{ref version} => {
@@ -169,12 +170,18 @@ fn repo_for_dependency<C: Clone + Connect>(
             )
         }
         &CrateLocation::Filesystem{ref path} => Box::new(future::ok({
-            let manifest_path = path.join("Cargo.toml");
-            cargo_toml::read_package(manifest_path)
-                .map_err(|e| {
-                    warn!("Error loading manifest of local dependency `{}`: {}",
-                        dep.name(), e); e
-                }).ok()
+            manifest_path.as_ref().parent()
+                .and_then(|manifest_dir| manifest_dir.join(path).canonicalize().map_err(|e| {
+                    warn!("Error resolving path=... dependency `{}`: {}", dep.name(), e); e
+                }).ok())
+                .and_then(|manifest_dir| {
+                    let dep_manifest_path = manifest_dir.join(path).join("Cargo.toml");
+                    cargo_toml::read_package(dep_manifest_path)
+                        .map_err(|e| {
+                            warn!("Error loading manifest of local dependency `{}`: {}",
+                                dep.name(), e); e
+                        }).ok()
+                })
                 .and_then(|p| {
                     // Like above, try `repository` followed by `homepage`.
                     p.repository.as_ref().and_then(Repository::from_url)
@@ -305,7 +312,7 @@ mod tests {
         let crates_io = CratesIoClient::new(&core.handle());
 
         let dep = Dependency::with_git_url("unused", "https://github.com/Xion/gisht.git");
-        let repo = core.run(repo_for_dependency(&crates_io, &dep)).unwrap();
+        let repo = core.run(repo_for_dependency("unused", &crates_io, &dep)).unwrap();
         assert_eq!(Some(Repository{owner: "Xion".into(), name: "gisht".into()}), repo);
     }
 
@@ -315,7 +322,7 @@ mod tests {
         let crates_io = CratesIoClient::new(&core.handle());
 
         let dep = Dependency::with_git_url("unused", "git@github.com:Xion/gisht.git");
-        let repo = core.run(repo_for_dependency(&crates_io, &dep)).unwrap();
+        let repo = core.run(repo_for_dependency("unused", &crates_io, &dep)).unwrap();
         assert_eq!(Some(Repository{owner: "Xion".into(), name: "gisht".into()}), repo);
     }
 }

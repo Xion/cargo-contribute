@@ -15,10 +15,7 @@ pub fn read_package<P: AsRef<Path>>(manifest_path: P) -> Result<Package, Error> 
     let path = manifest_path.as_ref();
     trace!("Reading [package] from manifest: {}", path.display());
 
-    let mut file = File::open(path)?;
-    let mut content = String::new();
-    file.read_to_string(&mut content)?;
-
+    let content = read_file_to_string(path)?;
     let manifest: Toml = toml::from_str(&content)?;
     let package = manifest.get("package")
         .ok_or_else(|| Error::Toml(toml::de::Error::custom(format!(
@@ -32,10 +29,7 @@ pub fn list_dependencies<P: AsRef<Path>>(manifest_path: P) -> Result<Vec<Depende
     let path = manifest_path.as_ref();
     trace!("Reading dependencies from manifest: {}", path.display());
 
-    let mut file = File::open(path)?;
-    let mut content = String::new();
-    file.read_to_string(&mut content)?;
-
+    let content = read_file_to_string(path)?;
     let manifest: Toml = toml::from_str(&content)?;
     match manifest.get("dependencies") {
         None => {
@@ -65,4 +59,14 @@ pub fn list_dependencies<P: AsRef<Path>>(manifest_path: P) -> Result<Vec<Depende
 pub enum Error {
     Io(io::Error),
     Toml(toml::de::Error),
+}
+
+
+// Utility functions
+
+fn read_file_to_string<P: AsRef<Path>>(path: P) -> io::Result<String> {
+    let mut file = File::open(path)?;
+    let mut content = String::with_capacity(1024);
+    file.read_to_string(&mut content)?;
+    Ok(content)
 }

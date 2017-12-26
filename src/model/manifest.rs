@@ -107,11 +107,11 @@ impl Dependency {
             }
         }
         match (attrs.get("version"), attrs.get("path"), attrs.get("git")) {
-            (Some(v), None, None) => Ok(Dependency::with_version(name, v)),
-            (None, Some(p), None) => Ok(Dependency::with_path(name, p)),
-            (None, None, Some(u)) => Ok(Dependency::with_git_url(name, u)),
+            (Some(v), None,    None) => Ok(Dependency::with_version(name, v)),
+            (_,       Some(p), None) => Ok(Dependency::with_path(name, p)),
+            (None,    None,    Some(u)) => Ok(Dependency::with_git_url(name, u)),
             _ => Err(toml::de::Error::custom(format!(
-                "dependency must specify either `version` or `path`"))),
+                "dependency must specify `version`, `path`, or `git`"))),
         }
     }
 }
