@@ -2,16 +2,21 @@
 
 [![crates.io](https://img.shields.io/crates/v/cargo-contribute.svg)](https://crates.io/crates/cargo-contribute)
 [![Build Status](https://travis-ci.org/Xion/cargo-contribute.svg?branch=master)](https://travis-ci.org/Xion/cargo-contribute)
+[![License](https://img.shields.io/github/license/Xion/cargo-contribute.svg)]()
 
 A cargo subcommand for contributing to development of your dependencies
 
 ## About
 
 Want to give back to authors of the useful crates you are depending on in your projects?
-With `cargo-contribute`, you will find some easy ways to do just that!
 
-When run against a Rust project, `cargo-contribute` will find its immediate dependencies,
-check their GitHub repositories, and look for unassigned issues that their maintainers are looking for help with.
+With `cargo-contribute`, you will find an easy way to do just that!
+
+When run against a Rust project, `cargo-contribute`:
+
+* finds its immediate dependencies
+* checks their GitHub repositories
+* looks for unassigned issues that the maintainers are looking for help with
 
 Here's a sample:
 
@@ -25,27 +30,29 @@ Here's a sample:
     [kbknapp/clap-rs] #850: zsh completion is too strict on command line args -- https://github.com/kbknapp/clap-rs/issues/850
     [dtolnay/isatty] #1: Implement stdin_isatty() for Windows -- https://github.com/dtolnay/isatty/issues/1
 
+Now you can just pick one of the resulting issues and start hacking :)
+
 ## Installation
 
-`cargo-contribute` can be installed with `cargo install`:
+You can install `cargo-contribute` through the usual `cargo install`:
 
     $ cargo install cargo-contribute
 
-This shall put the `cargo-contribute` executable in your Cargo binary directory
+This will put the `cargo-contribute` executable in your Cargo binary directory
 (e.g. `~/.cargo/bin`) -- which hopefully is in your `$PATH` -- and make it accessible as Cargo subcommand.
 
 ## Usage
 
-By default, `cargo-contribute` will suggest _all_ suitable issues filed against the direct dependencies
-of your project. You can limit their number using the `-n`/`--count` flag:
+By default, `cargo-contribute` suggests _all_ suitable issues filed against the direct dependencies
+of your project. You can limit their number with the `-n`/`--count` flag:
 
     $ cargo contribute -n 3
     [bluss/rust-itertools] #236: Forward `fn collect()` everywhere it is possible and where it makes a difference -- https://github.com/bluss/rust-itertools/issues/236
     [bluss/rust-itertools] #92: Group by that merges same key elements -- https://github.com/bluss/rust-itertools/issues/92
     [bluss/rust-itertools] #32: Add Debug implementations where possible -- https://github.com/bluss/rust-itertools/issues/32
 
-Additionally, you can tweak how each issue is printed out by using the `--format`/`-T` flag.
-It accepts a standard Rust `format!()` string:
+Additionally, you can tweak the way an issue is printed out by using the `--format`/`-T` flag.
+It accepts a standard Rust `format!()` string (see `--help` for the list of `{patterns}`):
 
     $ cargo contribute --format '{url}'
     https://github.com/kbknapp/clap-rs/issues/1094
