@@ -6,7 +6,6 @@ use std::fmt;
 use std::ffi::OsString;
 use std::iter::IntoIterator;
 use std::mem;
-use std::num::ParseIntError;
 use std::path::PathBuf;
 use std::slice;
 use std::str;
@@ -82,10 +81,7 @@ impl<'a> TryFrom<ArgMatches<'a>> for Options {
         let verbosity = verbose_count - quiet_count;
 
         let manifest_path = matches.value_of(OPT_MANIFEST_PATH).map(PathBuf::from);
-        let count = match matches.value_of(OPT_COUNT) {
-            Some(c) => Some(c.parse()?),
-            None => None,
-        };
+        let count = matches.value_of(OPT_COUNT).map(|c| c.parse().unwrap());
         let github_token = matches.value_of(OPT_GITHUB_TOKEN).map(String::from);
         let format = matches.value_of(OPT_FORMAT).map(String::from);
 
@@ -99,8 +95,6 @@ macro_attr! {
     pub enum ArgsError {
         /// General when parsing the arguments.
         Parse(clap::Error),
-        /// Error when parsing --count flag.
-        Count(ParseIntError),
     }
 }
 impl Error for ArgsError {
@@ -108,7 +102,6 @@ impl Error for ArgsError {
     fn cause(&self) -> Option<&Error> {
         match *self {
             ArgsError::Parse(ref e) => Some(e),
-            ArgsError::Count(ref e) => Some(e),
         }
     }
 }
@@ -116,7 +109,6 @@ impl fmt::Display for ArgsError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             ArgsError::Parse(ref e) => write!(fmt, "parse error: {}", e),
-            ArgsError::Count(ref e) => write!(fmt, "invalid --count value: {}", e),
         }
     }
 }

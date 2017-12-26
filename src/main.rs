@@ -100,6 +100,7 @@ fn main() {
 
 // Print an error that may occur while parsing arguments.
 fn print_args_error(e: ArgsError) {
+    #[allow(unreachable_patterns)]
     match e {
         ArgsError::Parse(ref e) => {
             // In case of generic parse error,
