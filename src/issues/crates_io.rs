@@ -14,7 +14,7 @@ use ext::hyper::BodyExt;
 use util::{HttpsConnector, https_client};
 
 
-const API_ROOT: &'static str = "https://crates.io/api/v1/";
+const API_ROOT: &str = "https://crates.io/api/v1/";
 
 
 /// Structure holding information about a single crate.

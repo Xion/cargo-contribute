@@ -50,6 +50,7 @@ pub struct Dependency {
     location: CrateLocation,
 }
 
+#[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
 impl Dependency {
     #[inline]
     pub fn with_version<N, V>(name: N, version: V) -> Self
@@ -63,7 +64,7 @@ impl Dependency {
                     VersionReq::any()
                 } else {
                     // TODO: some error handling here
-                    VersionReq::parse(version.as_ref()).unwrap()
+                    VersionReq::parse(version).unwrap()
                 },
             },
         }
@@ -110,8 +111,8 @@ impl Dependency {
             (Some(v), None,    None) => Ok(Dependency::with_version(name, v)),
             (_,       Some(p), None) => Ok(Dependency::with_path(name, p)),
             (None,    None,    Some(u)) => Ok(Dependency::with_git_url(name, u)),
-            _ => Err(toml::de::Error::custom(format!(
-                "dependency must specify `version`, `path`, or `git`"))),
+            _ => Err(toml::de::Error::custom(
+                "dependency must specify `version`, `path`, or `git`")),
         }
     }
 }
@@ -166,16 +167,16 @@ pub enum CrateLocation {
 impl CrateLocation {
     #[inline]
     pub fn is_registry(&self) -> bool {
-        match self { &CrateLocation::Registry{..} => true, _ => false }
+        match *self { CrateLocation::Registry{..} => true, _ => false }
     }
 
     #[inline]
     pub fn is_filesystem(&self) -> bool {
-        match self { &CrateLocation::Filesystem{..} => true, _ => false }
+        match *self { CrateLocation::Filesystem{..} => true, _ => false }
     }
 
     #[inline]
     pub fn is_git(&self) -> bool {
-        match self { &CrateLocation::Git{..} => true, _ => false }
+        match *self { CrateLocation::Git{..} => true, _ => false }
     }
 }

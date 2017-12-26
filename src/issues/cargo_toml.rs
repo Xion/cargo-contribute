@@ -40,10 +40,10 @@ pub fn list_dependencies<P: AsRef<Path>>(manifest_path: P) -> Result<Vec<Depende
             let result: Result<Vec<_>, _> = t.iter()
                 .map(|(name, v)| Dependency::from_toml(name, v).map_err(Error::Toml))
                 .collect();
-            match &result {
-                &Ok(ref deps) =>
+            match result {
+                Ok(ref deps) =>
                     debug!("{} dependencies found in {}",deps.len(), path.display()),
-                &Err(ref e) =>
+                Err(ref e) =>
                     error!("Error while parsing dependencies in {}: {}", path.display(), e),
             }
             result

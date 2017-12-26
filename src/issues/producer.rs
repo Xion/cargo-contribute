@@ -26,7 +26,7 @@ use super::github::pending_issues;
 
 type Stream<T> = Box<StdStream<Item=T, Error=Error>>;
 
-/// Type of the Stream returned by SuggestedIssuesProducer.
+/// Type of the Stream returned by `SuggestedIssuesProducer`.
 pub type IssueStream = Stream<Issue>;
 
 
@@ -55,6 +55,7 @@ impl SuggestedIssuesProducer {
     }
 
     #[inline]
+    #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
     pub fn with_http(http: HyperClient<HttpsConnector>) -> Self {
         SuggestedIssuesProducer {
             crates_io: CratesIoClient::with_http(http.clone()),
@@ -149,8 +150,8 @@ lazy_static! {
 fn repo_for_dependency<P: AsRef<Path>, C: Clone + Connect>(
     manifest_path: P, crates_io: &CratesIoClient<C>, dep: &Dependency
 ) -> Box<Future<Item=Option<Repository>, Error=crates_io::Error>> {
-    match dep.location() {
-        &CrateLocation::Registry{ref version} => {
+    match *dep.location() {
+        CrateLocation::Registry{ref version} => {
             // Check the local Cargo cache first for the dependent crate's manifest.
             // Otherwise, fall back to querying crates.io.
             if let Some(package) = find_cached_manifest(dep.name(), version) {
@@ -169,7 +170,7 @@ fn repo_for_dependency<P: AsRef<Path>, C: Clone + Connect>(
                 })
             )
         }
-        &CrateLocation::Filesystem{ref path} => Box::new(future::ok({
+        CrateLocation::Filesystem{ref path} => Box::new(future::ok({
             manifest_path.as_ref().parent()
                 .and_then(|manifest_dir| manifest_dir.join(path).canonicalize().map_err(|e| {
                     warn!("Error resolving path=... dependency `{}`: {}", dep.name(), e); e
@@ -188,7 +189,7 @@ fn repo_for_dependency<P: AsRef<Path>, C: Clone + Connect>(
                         .or_else(|| p.homepage.as_ref().and_then(Repository::from_url))
                 })
         })),
-        &CrateLocation::Git{ref url} => Box::new(future::ok(
+        CrateLocation::Git{ref url} => Box::new(future::ok(
             GITHUB_GIT_HTTPS_URL_RE.captures(url)
                 .or_else(|| GITHUB_GIT_SSH_URL_RE.captures(url))
                 .map(|caps| Repository::new(&caps["owner"], &caps["name"]))
@@ -218,7 +219,7 @@ fn find_cached_manifest<N>(crate_: N, version: &VersionReq) -> Option<Package>
         .filter_map(|dir| {
             // Extract the cached crate version and match it with the dependency requirement.
             let version_suffix = dir.file_name().unwrap().to_str().unwrap()
-                .rsplit("-").next().unwrap();
+                .rsplit('-').next().unwrap();
             let cached_version = Version::parse(version_suffix).unwrap_or_else(|e| {
                 panic!("Failed to parse crate version `{}` from cached path {}: {}",
                     version_suffix, dir.display(), e);
@@ -252,11 +253,11 @@ fn find_cached_manifest<N>(crate_: N, version: &VersionReq) -> Option<Package>
 
 // Searching suitable issues on GitHub
 
-const GITHUB_API_ROOT: &'static str = "https://api.github.com";
+const GITHUB_API_ROOT: &str = "https://api.github.com";
 
 /// Issue labels that we're looking for when suggesting issues.
 /// At least one of these must be present.
-const ISSUE_LABELS: &'static [&'static str] = &[
+const ISSUE_LABELS: &[&str] = &[
     "help wanted",
     "good first issue",
     "easy",

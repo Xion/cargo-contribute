@@ -130,12 +130,12 @@ fn log_signature() {
 /// and print them to stdout.
 fn suggest_contributions(core: &mut Core, opts: &Options) -> ! {
     let manifest_path = opts.manifest_path.as_ref()
-        .map(|p| p as &Path).unwrap_or(Path::new("./Cargo.toml"));
+        .map(|p| p as &Path).unwrap_or_else(|| Path::new("./Cargo.toml"));
     if !manifest_path.is_file() {
         error!("Couldn't find crate manifest {}.",
             match opts.manifest_path {
                 Some(ref path) => format!("under {}", path.display()),
-                None => format!("; make sure you're in the crate root directory."),
+                None => "; make sure you're in the crate root directory.".into(),
             });
         exit(exitcode::DATAERR);
     }

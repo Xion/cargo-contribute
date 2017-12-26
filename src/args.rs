@@ -106,17 +106,17 @@ macro_attr! {
 impl Error for ArgsError {
     fn description(&self) -> &str { "failed to parse argv" }
     fn cause(&self) -> Option<&Error> {
-        match self {
-            &ArgsError::Parse(ref e) => Some(e),
-            &ArgsError::Count(ref e) => Some(e),
+        match *self {
+            ArgsError::Parse(ref e) => Some(e),
+            ArgsError::Count(ref e) => Some(e),
         }
     }
 }
 impl fmt::Display for ArgsError {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            &ArgsError::Parse(ref e) => write!(fmt, "parse error: {}", e),
-            &ArgsError::Count(ref e) => write!(fmt, "invalid --count value: {}", e),
+        match *self {
+            ArgsError::Parse(ref e) => write!(fmt, "parse error: {}", e),
+            ArgsError::Count(ref e) => write!(fmt, "invalid --count value: {}", e),
         }
     }
 }
@@ -130,15 +130,16 @@ type Parser<'p> = clap::App<'p, 'p>;
 
 
 lazy_static! {
+    #[cfg_attr(feature = "cargo-clippy", allow(const_static_lifetime))]
     static ref ABOUT: &'static str = option_env!("CARGO_PKG_DESCRIPTION").unwrap_or("");
 }
 
-const OPT_MANIFEST_PATH: &'static str = "manifest-path";
-const OPT_COUNT: &'static str = "count";
-const OPT_GITHUB_TOKEN: &'static str = "github-token";
-const OPT_FORMAT: &'static str = "format";
-const OPT_VERBOSE: &'static str = "verbose";
-const OPT_QUIET: &'static str = "quiet";
+const OPT_MANIFEST_PATH: &str = "manifest-path";
+const OPT_COUNT: &str = "count";
+const OPT_GITHUB_TOKEN: &str = "github-token";
+const OPT_FORMAT: &str = "format";
+const OPT_VERBOSE: &str = "verbose";
+const OPT_QUIET: &str = "quiet";
 
 /// Create the parser for application's command line.
 fn create_parser<'p>() -> Parser<'p> {
@@ -231,11 +232,13 @@ fn create_parser<'p>() -> Parser<'p> {
 }
 
 /// Validator for the --count flag value.
+#[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
 fn validate_count(count: String) -> Result<(), String> {
     count.parse::<usize>().map(|_| ()).map_err(|e| format!("{}", e))
 }
 
 /// Validator for the --format flag value.
+#[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
 fn validate_format(format: String) -> Result<(), String> {
     lazy_static! {
         static ref EXAMPLE_ISSUE: Issue = Issue{
@@ -248,8 +251,7 @@ fn validate_format(format: String) -> Result<(), String> {
         };
     }
     format_issue(&format, &*EXAMPLE_ISSUE).map(|_| ()).map_err(|e| match e {
-        FmtError::Invalid(msg) => msg,
-        FmtError::KeyError(msg) => msg,
+        FmtError::Invalid(msg) | FmtError::KeyError(msg) => msg,
         // Other errors shouldn't happen because they would indicate problems
         // with formatting arguments, i.e. a bug in our code.
         e => panic!("Unexpected error when validating --format: {}", e),
@@ -258,6 +260,7 @@ fn validate_format(format: String) -> Result<(), String> {
 
 
 /// Convert a value to a &'static str by leaking the memory of an owned String.
+#[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
 fn leak<T: ToString>(v: T) -> &'static str {
     let s = v.to_string();
     unsafe {

@@ -4,7 +4,7 @@ pub mod futures {
     use futures::Future;
 
 
-    /// Reintroduced BoxFuture (which is deprecated in new versions of futures-rs).
+    /// Reintroduced `BoxFuture` (which is deprecated in new versions of futures-rs).
     ///
     /// Note that unlike the original, it does NOT have the Send requirement,
     /// and also allows to fine-tune the actual lifetime of the future

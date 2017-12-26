@@ -6,7 +6,7 @@ use hubcaps::search::IssuesItem;
 use url::{Url, Host};
 
 
-const GITHUB_HOST: &'static str = "github.com";
+const GITHUB_HOST: &str = "github.com";
 
 
 /// Represents a GitHub repository.
@@ -18,6 +18,7 @@ pub struct Repository {
 
 impl Repository {
     #[inline]
+    #[cfg_attr(feature = "cargo-clippy", allow(needless_pass_by_value))]
     pub fn new<O: ToString, N: ToString>(owner: O, name: N) -> Self {
         Repository {
             owner: owner.to_string(),

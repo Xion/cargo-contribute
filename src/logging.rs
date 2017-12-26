@@ -24,12 +24,12 @@ const DEFAULT_LEVEL: Level = Level::Info;
 const DEFAULT_FILTER_LEVEL: FilterLevel = FilterLevel::Info;
 
 // Arrays of log levels, indexed by verbosity.
-const POSITIVE_VERBOSITY_LEVELS: &'static [FilterLevel] = &[
+const POSITIVE_VERBOSITY_LEVELS: &[FilterLevel] = &[
     DEFAULT_FILTER_LEVEL,
     FilterLevel::Debug,
     FilterLevel::Trace,
 ];
-const NEGATIVE_VERBOSITY_LEVELS: &'static [FilterLevel] = &[
+const NEGATIVE_VERBOSITY_LEVELS: &[FilterLevel] = &[
     DEFAULT_FILTER_LEVEL,
     FilterLevel::Warning,
     FilterLevel::Error,
@@ -39,13 +39,13 @@ const NEGATIVE_VERBOSITY_LEVELS: &'static [FilterLevel] = &[
 
 /// Libraries that have their verbose/debug logging filtered out
 /// even on greater verbosity levels (because they spam too much).
-const SQUELCHED_LIBRARIES: &'static [&'static str] = &[
+const SQUELCHED_LIBRARIES: &[&str] = &[
     "hubcaps", "hyper", "tokio",
 ];
 
 
 /// Initialize logging with given verbosity.
-/// The verbosity value has the same meaning as in args::Options::verbosity.
+/// The verbosity value has the same meaning as in `args::Options::verbosity`.
 pub fn init(verbosity: isize) -> Result<(), SetLoggerError> {
     let istty = cfg!(unix) && isatty::stderr_isatty();
     let stderr = slog_stream::stream(io::stderr(), LogFormat{tty: istty});
@@ -158,7 +158,7 @@ fn format_log_time() -> String {
     format!("{}.{:04}Z", logtime, millis)
 }
 
-const NANOS_IN_MILLISEC: u32 = 1000000;
+const NANOS_IN_MILLISEC: u32 = 1_000_000;
 
 lazy_static! {
     /// Map of log levels to their ANSI terminal styles.
