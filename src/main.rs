@@ -138,7 +138,7 @@ fn suggest_contributions(core: &mut Core, opts: &Options) -> ! {
                 Some(ref path) => format!("under {}", path.display()),
                 None => "; make sure you're in the crate root directory.".into(),
             });
-        exit(exitcode::DATAERR);
+        exit(exitcode::NOINPUT);
     }
 
     // TODO: consider doing the OAuth flow via a browser and saving the access token+secret

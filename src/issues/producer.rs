@@ -133,7 +133,7 @@ pub enum Error {
 
 lazy_static! {
     static ref GITHUB_GIT_HTTPS_URL_RE: Regex = Regex::new(
-        r#"https://github\.com/(?P<owner>\w+)/(?P<name>[^.]+)\.git"#
+        r#"https://github\.com/(?P<owner>\w+)/(?P<name>[^.]+)(\.git)?"#
     ).unwrap();
     static ref GITHUB_GIT_SSH_URL_RE: Regex = Regex::new(
         r#"git@github\.com:(?P<owner>\w+)/(?P<name>[^.]+)\.git"#
@@ -154,7 +154,7 @@ fn repo_for_dependency<P: AsRef<Path>, C: Clone + Connect>(
         CrateLocation::Registry{ref version} => {
             // Check the local Cargo cache first for the dependent crate's manifest.
             // Otherwise, fall back to querying crates.io.
-            if let Some(package) = find_cached_manifest(dep.name(), version) {
+            if let Some(package) = read_cached_manifest(dep.name(), version) {
                 return Box::new(future::ok(
                     package.repository.as_ref().and_then(Repository::from_url)
                 ));
@@ -197,7 +197,7 @@ fn repo_for_dependency<P: AsRef<Path>, C: Clone + Connect>(
     }
 }
 
-fn find_cached_manifest<N>(crate_: N, version: &VersionReq) -> Option<Package>
+fn read_cached_manifest<N>(crate_: N, version: &VersionReq) -> Option<Package>
     where N: AsRef<str>
 {
     let crate_ = crate_.as_ref();
@@ -215,7 +215,10 @@ fn find_cached_manifest<N>(crate_: N, version: &VersionReq) -> Option<Package>
     let pattern = format!("{}/*/{}-*", cache_root.display(), crate_);
     trace!("Globbing with pattern: {}", pattern);
     let manifest_path = glob(&pattern).unwrap()
-        .filter_map(Result::ok)
+        .filter_map(|res| {
+            if let Err(ref e) = res { trace!("Error while globbing: {}", e); }
+            res.ok()
+        })
         .filter_map(|dir| {
             // Extract the cached crate version and match it with the dependency requirement.
             let version_suffix = dir.file_name().unwrap().to_str().unwrap()
