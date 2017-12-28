@@ -55,8 +55,14 @@ pub fn pending_issues<C: Clone + Connect>(
                         // If we hit HTTP 403, that probably means we've reached the GitHub rate limit.
                         // Not much else we can do here, so we just stop poking it any more.
                         StatusCode::Forbidden => {
-                            warn!("Possible rate limit hit when searching repository {}: {}",
-                                repo, error.message);
+                            // TODO: improve this when this hubcaps issue is fixed:
+                            // https://github.com/softprops/hubcaps/issues/103
+                            if error.message.contains("rate limit") {
+                                warn!("Rate limit hit when searching repository {}", repo);
+                            } else {
+                                warn!("Access denied when searching repository {}: {}",
+                                    repo, error.message)
+                            }
                             if let Some(ref errors) = error.errors {
                                 debug!("HTTP 403 error details: {:?}", errors.iter().format(", "));
                             }
