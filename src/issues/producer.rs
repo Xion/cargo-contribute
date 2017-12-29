@@ -79,7 +79,7 @@ impl SuggestedIssuesProducer {
 
         // Determine the GitHub repositories corresponding to dependent crates.
         // In most cases, this means read the package/repository entries
-        // from the manifests of those crates by talking to crates.io.
+        // from the manifests of those crates by looking at Cargo cache or talking to crates.io.
         let mut repo_set = HashSet::new();
         let repos = {
             let manifest_path = manifest_path.to_owned();
@@ -143,7 +143,7 @@ pub enum Error {
 
 lazy_static! {
     static ref GITHUB_GIT_HTTPS_URL_RE: Regex = Regex::new(
-        r#"https://github\.com/(?P<owner>\w+)/(?P<name>[^.]+)(\.git)?"#
+        r#"https?://(www\.)?github\.com/(?P<owner>\w+)/(?P<name>[^.]+)(\.git)?"#
     ).unwrap();
     static ref GITHUB_GIT_SSH_URL_RE: Regex = Regex::new(
         r#"git@github\.com:(?P<owner>\w+)/(?P<name>[^.]+)\.git"#
@@ -259,7 +259,7 @@ fn read_cached_manifest<N>(crate_: N, version: &VersionReq) -> Option<Package>
     }
 
     cargo_toml::read_package(manifest_path).map_err(|e| {
-        warn!("Error while reading cached manifest of {}={}: {}", crate_, version, e)
+        warn!("Error while reading cached manifest of {}={}: {}", crate_, version, e);
     }).ok()
 }
 
@@ -321,13 +321,26 @@ mod tests {
     }
 
     #[test]
-    fn repo_for_github_https_git_dependency() {
+    fn repo_for_github_http_git_dependency() {
         let mut core = Core::new().unwrap();
         let crates_io = CratesIoClient::new(&core.handle());
 
-        let dep = Dependency::with_git_url("unused", "https://github.com/Xion/gisht.git");
-        let repo = core.run(repo_for_dependency("unused", &crates_io, &dep)).unwrap();
-        assert_eq!(Some(Repository{owner: "Xion".into(), name: "gisht".into()}), repo);
+        const REPO_URLS: &[&str] = &[
+            "https://github.com/Xion/gisht.git",
+            "http://github.com/Xion/gisht.git",
+            "http://www.github.com/Xion/gisht.git",
+            "https://www.github.com/Xion/gisht.git",
+            "https://github.com/Xion/gisht",
+            "http://github.com/Xion/gisht",
+            "http://www.github.com/Xion/gisht",
+            "https://www.github.com/Xion/gisht",
+        ];
+        let expected_repo = Repository{owner: "Xion".into(), name: "gisht".into()};
+        for &repo_url in REPO_URLS {
+            let dep = Dependency::with_git_url("unused", repo_url);
+            let repo = core.run(repo_for_dependency("unused", &crates_io, &dep)).unwrap();
+            assert_eq!(Some(&expected_repo), repo.as_ref());
+        }
     }
 
     #[test]

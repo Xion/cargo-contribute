@@ -6,7 +6,7 @@ use hubcaps::search::IssuesItem;
 use url::{Url, Host};
 
 
-const GITHUB_HOST: &str = "github.com";
+const GITHUB_HOSTS: &[&str] = &["github.com", "www.github.com"];
 
 
 /// Represents a GitHub repository.
@@ -29,7 +29,7 @@ impl Repository {
     /// Determine the repository from given GitHub URL.
     pub fn from_url<U: AsRef<str>>(repo_url: U) -> Option<Self> {
         let parsed = Url::parse(repo_url.as_ref()).ok()?;
-        if parsed.host() == Some(Host::Domain(GITHUB_HOST)) {
+        if GITHUB_HOSTS.iter().any(|h| parsed.host() == Some(Host::Domain(h)))  {
             let segs = parsed.path_segments().map(|ps| ps.collect()).unwrap_or_else(Vec::new);
             if segs.len() == 2 {
                 // github.com/$OWNER/$NAME (project homepage)

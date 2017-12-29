@@ -93,7 +93,7 @@ macro_attr! {
     /// Error that can occur while parsing of command line arguments.
     #[derive(Debug, EnumFromInner!)]
     pub enum ArgsError {
-        /// General when parsing the arguments.
+        /// General error when parsing the arguments.
         Parse(clap::Error),
     }
 }
