@@ -10,7 +10,7 @@ const GITHUB_HOST: &str = "github.com";
 
 
 /// Represents a GitHub repository.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Repository {
     pub owner: String,
     pub name: String,

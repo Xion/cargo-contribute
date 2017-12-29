@@ -1,5 +1,6 @@
 //! Module implementing the suggested issues producer.
 
+use std::collections::HashSet;
 use std::env;
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -79,6 +80,7 @@ impl SuggestedIssuesProducer {
         // Determine the GitHub repositories corresponding to dependent crates.
         // In most cases, this means read the package/repository entries
         // from the manifests of those crates by talking to crates.io.
+        let mut repo_set = HashSet::new();
         let repos = {
             let manifest_path = manifest_path.to_owned();
             let crates_io = self.crates_io.clone();
@@ -86,7 +88,15 @@ impl SuggestedIssuesProducer {
                 .and_then(move |dep| {
                     repo_for_dependency(&manifest_path, &crates_io, &dep).map_err(Error::CratesIo)
                 })
-                .filter_map(|opt_repo| opt_repo)
+                .filter_map(move |opt_repo| {
+                    if let Some(repo) = opt_repo {
+                        // Check if we've reported on this repo already.
+                        if repo_set.contains(&repo) { None }
+                        else {
+                            repo_set.insert(repo.clone()); Some(repo)
+                        }
+                    } else { None }
+                })
         };
 
         // For each repo, search for suitable issues and stream them in a round-robin fashion
