@@ -26,8 +26,8 @@ impl Repository {
         }
     }
 
-    /// Determine the repository from given GitHub URL.
-    pub fn from_url<U: AsRef<str>>(repo_url: U) -> Option<Self> {
+    /// Determine the repository from given GitHub HTTP URL.
+    pub fn from_http_url<U: AsRef<str>>(repo_url: U) -> Option<Self> {
         let parsed = Url::parse(repo_url.as_ref()).ok()?;
         if GITHUB_HOSTS.iter().any(|h| parsed.host() == Some(Host::Domain(h)))  {
             let segs = parsed.path_segments().map(|ps| ps.collect()).unwrap_or_else(Vec::new);
@@ -98,14 +98,14 @@ mod tests {
 
     #[test]
     fn repository_from_project_url() {
-        let repo = Repository::from_url("https://github.com/Xion/gisht").unwrap();
+        let repo = Repository::from_http_url("https://github.com/Xion/gisht").unwrap();
         assert_eq!("Xion", repo.owner);
         assert_eq!("gisht", repo.name);
     }
 
     #[test]
     fn repository_from_git_url() {
-        let repo = Repository::from_url("https://github.com/Xion/callee.git").unwrap();
+        let repo = Repository::from_http_url("https://github.com/Xion/callee.git").unwrap();
         assert_eq!("Xion", repo.owner);
         assert_eq!("callee", repo.name);
     }

@@ -15,8 +15,9 @@ use conv::TryFrom;
 use itertools::Itertools;
 use strfmt::FmtError;
 
+use display::{ISSUE_FORMATTERS, format_issue};
 use model::{Issue, Repository};
-use super::{ISSUE_FORMATTERS, NAME, VERSION, format_issue};
+use super::{NAME, VERSION};
 
 
 // Parse command line arguments and return `Options` object.
@@ -191,7 +192,7 @@ fn create_parser<'p>() -> Parser<'p> {
 
         .arg(Arg::with_name(OPT_FORMAT)
             .long("format")
-            .visible_alias("template").short("T")  // inspired by `hg log`
+            .alias("template").short("T")  // inspired by `hg log`
             .takes_value(true)
             .empty_values(true)
             .allow_hyphen_values(true)
@@ -202,9 +203,9 @@ fn create_parser<'p>() -> Parser<'p> {
             .long_help(leak(format!(concat!(
                 "Specify your own formatting string to use when printing suggested issues.\n\n",
                 "This string follows the normal Rust syntax from format!() et al.\n",
-                "The following issue placeholders are available for use:\n",
-                "{}"), ISSUE_FORMATTERS.keys().format_with(", ", |key, f| {
-                    f(&format_args!("{{{}}}", key))  // {key}
+                "The following issue placeholders are available for use:\n\n",
+                "{}"), ISSUE_FORMATTERS.iter().format_with("\n", |(ph, ref fmt), f| {
+                    f(&format_args!("* {{{}}} -- {}", ph, fmt.description()))  // * {key} -- desc
                 })))))
 
         // Verbosity flags.

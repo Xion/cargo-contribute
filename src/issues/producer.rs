@@ -166,7 +166,7 @@ fn repo_for_dependency<P: AsRef<Path>, C: Clone + Connect>(
             // Otherwise, fall back to querying crates.io.
             if let Some(package) = read_cached_manifest(dep.name(), version) {
                 return Box::new(future::ok(
-                    package.repository.as_ref().and_then(Repository::from_url)
+                    package.repository.as_ref().and_then(Repository::from_http_url)
                 ));
             }
             debug!("Dependency {}={} not found in local Cargo cache", dep.name(), version);
@@ -175,8 +175,8 @@ fn repo_for_dependency<P: AsRef<Path>, C: Clone + Connect>(
                     // Some crates list their GitHub URLs only as "homepage" in the manifest,
                     // so we'll try that in addition to the more appropriate "repository".
                     let crate_ = opt_c?;
-                    crate_.metadata.repo_url.as_ref().and_then(Repository::from_url)
-                        .or_else(|| Repository::from_url(crate_.metadata.homepage_url.as_ref()?))
+                    crate_.metadata.repo_url.as_ref().and_then(Repository::from_http_url)
+                        .or_else(|| Repository::from_http_url(crate_.metadata.homepage_url.as_ref()?))
                 })
             )
         }
@@ -195,8 +195,8 @@ fn repo_for_dependency<P: AsRef<Path>, C: Clone + Connect>(
                 })
                 .and_then(|p| {
                     // Like above, try `repository` followed by `homepage`.
-                    p.repository.as_ref().and_then(Repository::from_url)
-                        .or_else(|| p.homepage.as_ref().and_then(Repository::from_url))
+                    p.repository.as_ref().and_then(Repository::from_http_url)
+                        .or_else(|| p.homepage.as_ref().and_then(Repository::from_http_url))
                 })
         })),
         CrateLocation::Git{ref url} => Box::new(future::ok(

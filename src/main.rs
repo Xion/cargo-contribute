@@ -41,6 +41,7 @@
 
 
 mod args;
+mod display;
 mod ext;
 mod issues;
 mod logging;
@@ -49,14 +50,12 @@ mod util;
 
 
 use std::borrow::Cow;
-use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
 use std::process::exit;
 
 use futures::Stream;
 use log::LogLevel::*;
-use strfmt::{FmtError, strfmt};
 use tokio_core::reactor::Core;
 
 use args::{ArgsError, Options};
@@ -175,31 +174,8 @@ fn suggest_contributions(core: &mut Core, opts: &Options) -> ! {
 /// Print a single issue to standard output.
 fn print_issue(fmt: Option<&str>, issue: &Issue) -> Result<(), Box<Error>> {
     match fmt {
-        Some(f) => println!("{}", format_issue(f, issue)?),
+        Some(f) => println!("{}", display::format_issue(f, issue)?),
         None => println!("{} -- {}", issue, issue.url),
     }
     Ok(())
-}
-
-/// Format an issue according to user-provided format.
-fn format_issue(fmt: &str, issue: &Issue) -> Result<String, FmtError> {
-    let params: HashMap<String, _> = ISSUE_FORMATTERS.iter()
-        .map(|(&p, &f)| (p.to_owned(), f(issue)))
-        .collect();
-    let line = strfmt(fmt, &params)?;
-    Ok(line)
-}
-
-lazy_static! {
-    // TODO: add a short description for each formatter to be printed in --help
-    static ref ISSUE_FORMATTERS: HashMap<&'static str, fn(&Issue) -> Cow<str>> = hashmap!{
-        "owner" => (|issue| issue.repo.owner.as_str().into()) as fn(&Issue) -> Cow<str>,
-        "project" => |issue| issue.repo.name.as_str().into(),
-        "repo" => |issue| format!("{}", issue.repo).into(),
-        "number" => |issue| format!("{}", issue.number).into(),
-        "url" => |issue| issue.url.as_str().into(),
-        "title" => |issue| issue.title.as_str().into(),
-        "body" => |issue| issue.body.as_str().into(),
-        "comments" => |issue| format!("{}", issue.comment_count).into(),
-    };
 }
