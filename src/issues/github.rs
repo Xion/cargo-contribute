@@ -37,13 +37,26 @@ pub fn pending_issues<C: Clone + Connect>(
 
     Box::new(
         github.search().issues().iter(query, &options)
-            // We may encounter some HTTP errors when doing the search
+            // We may encounter some non-fatal HTTP errors when doing the search
             // which we translate to an early stream termination via a .then() + take_while() trick.
             .then(move |res| match res {
                 Ok(issue_item) => Ok(Some(issue_item)),
+                Err(Error(ErrorKind::RateLimit { reset }, _)) => {
+                    // In case of having hit GitHub rate limits,
+                    // warn that it happened but don't complain about it as a fatal error
+                    // and simply terminate the issue stream instead.
+                    warn!("API rate limit hit on repo {}, retry in {} seconds",
+                        repo, reset.as_secs());
+                    // TODO: consider simply waiting the specified time w/o terminating the stream;
+                    // this is usually around 60 secs though so may be best to enable with a --flag
+                    Ok(None)
+                }
                 Err(Error(ErrorKind::Fault{ code, error }, _)) => {
                     debug!("HTTP {} error for repository {}/{}: {:?}",
                         code, repo.owner, repo.name, error);
+                    if let Some(ref errors) = error.errors {
+                        debug!("HTTP {} error details: {:?}", code, errors.iter().format(", "));
+                    }
                     match code {
                         // GitHub returns 422 Unprocessable Entity if the repo doesn't exist at all.
                         // This isn't really an error for us (since crate manifests can list invalid
@@ -52,20 +65,12 @@ pub fn pending_issues<C: Clone + Connect>(
                             warn!("Cannot access repository {}: {}", repo, code);
                             Ok(None)
                         }
-                        // If we hit HTTP 403, that probably means we've reached the GitHub rate limit.
+                        // If we hit HTTP 403 outside of rate limiting,
+                        // it most likely means the repository exists but is private.
                         // Not much else we can do here, so we just stop poking it any more.
                         StatusCode::Forbidden => {
-                            // TODO: improve this when this hubcaps issue is fixed:
-                            // https://github.com/softprops/hubcaps/issues/103
-                            if error.message.contains("rate limit") {
-                                warn!("Rate limit hit when searching repository {}", repo);
-                            } else {
-                                warn!("Access denied when searching repository {}: {}",
-                                    repo, error.message)
-                            }
-                            if let Some(ref errors) = error.errors {
-                                debug!("HTTP 403 error details: {:?}", errors.iter().format(", "));
-                            }
+                            warn!("Access denied when searching repository {}: {}",
+                                repo, error.message);
                             Ok(None)
                         }
                         // For other HTTP faults, reconstruct the original error.
