@@ -1,10 +1,10 @@
 //! Module implementing the suggested issues producer.
 
 use std::collections::HashSet;
-use std::env;
 use std::fmt;
 use std::path::{Path, PathBuf};
 
+use dirs;
 use futures::{future, Future, stream, Stream as StdStream};
 use glob::glob;
 use hubcaps::{self, Credentials, Error as HubcapsError, Github};
@@ -151,9 +151,8 @@ lazy_static! {
 }
 
 lazy_static! {
-    // TODO: a dot-dir in $HOME probably doesn't work on Windows,
-    // so we likely need to look in AppData or similar instead
-    static ref CARGO_REGISTRY_CACHE_DIR: Option<PathBuf> = env::home_dir()
+    // TODO: verify this is where Cargo keeps the registry on Windows
+    static ref CARGO_REGISTRY_CACHE_DIR: Option<PathBuf> = dirs::home_dir()
         .map(|home| home.join(".cargo/registry/src"));
 }
 

@@ -7,6 +7,7 @@
 #[macro_use] extern crate clap;
              extern crate conv;
 #[macro_use] extern crate derive_error;
+             extern crate dirs;
 #[macro_use] extern crate enum_derive;
              extern crate exitcode;
              extern crate futures;

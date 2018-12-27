@@ -22,6 +22,7 @@ chrono = { version = "0.4", features = ["serde"] }
 clap = "2.26.0"
 conv = "0.3"
 derive-error = "0.0.3"
+dirs = "1.0"
 enum_derive = "0.1"
 exitcode = "1.1.2"
 futures = "0.1.17"
