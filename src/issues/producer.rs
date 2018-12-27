@@ -243,9 +243,7 @@ fn read_cached_manifest<N>(crate_: N, version: &VersionReq) -> Option<Package>
                 None
             }
         })
-        // TODO: use sorted_by_key() when the PR is merged:
-        // https://github.com/bluss/rust-itertools/pull/251
-        .sorted_by(|&(ref v1, _), &(ref v2, _)| v1.cmp(v2)).into_iter().map(|(_, d)| d)
+        .sorted_by_key(|&(ref v, _)| v.clone()).map(|(_, d)| d)
         .next().or_else(|| {
             debug!("Crate {}-{} not found in Cargo cache", crate_, version); None
         })?
