@@ -35,7 +35,7 @@ impl Repository {
                 // github.com/$OWNER/$NAME (project homepage)
                 // or github.com/$OWNER/$NAME.git (direct Git repo URL)
                 let owner = segs[0];
-                let name = segs[1].trim_right_matches(".git");
+                let name = segs[1].trim_end_matches(".git");
                 let repo = Repository::new(owner, name);
                 trace!("URL {} identified as GitHub repo {}", parsed, repo);
                 return Some(repo);

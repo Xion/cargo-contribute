@@ -100,7 +100,7 @@ macro_attr! {
 }
 impl Error for ArgsError {
     fn description(&self) -> &str { "failed to parse argv" }
-    fn cause(&self) -> Option<&Error> {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
         match *self {
             ArgsError::Parse(ref e) => Some(e),
         }

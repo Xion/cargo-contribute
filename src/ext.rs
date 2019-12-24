@@ -9,7 +9,7 @@ pub mod futures {
     /// Note that unlike the original, it does NOT have the Send requirement,
     /// and also allows to fine-tune the actual lifetime of the future
     /// (rather that requiring it to be 'static).
-    pub type BoxFuture<'f, T, E> = Box<Future<Item = T, Error = E> + 'f>;
+    pub type BoxFuture<'f, T, E> = Box<dyn Future<Item = T, Error = E> + 'f>;
 
     /// Trait with additional methods for Future objects.
     pub trait FutureExt: Future + Sized {

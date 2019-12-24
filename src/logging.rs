@@ -107,7 +107,7 @@ struct LogFormat {
 
 impl slog_stream::Format for LogFormat {
     /// Format a single log Record and write it to given output.
-    fn format(&self, output: &mut io::Write,
+    fn format(&self, output: &mut dyn io::Write,
               record: &slog::Record,
               _logger_kvp: &slog::OwnedKeyValueList) -> io::Result<()> {
         // Format the higher level (more fine-grained) messages with greater detail,

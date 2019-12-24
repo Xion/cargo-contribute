@@ -109,7 +109,7 @@ fn print_args_error(e: ArgsError) {
         }
         e => {
             eprintln!("Failed to parse arguments: {}",
-                e.cause().map(|c| format!("{}", c)).unwrap_or_else(|| "<unknown error>".into()));
+                e.source().map(|c| format!("{}", c)).unwrap_or_else(|| "<unknown error>".into()));
         }
     }
 }
@@ -173,7 +173,7 @@ fn suggest_contributions(core: &mut Core, opts: &Options) -> ! {
 }
 
 /// Print a single issue to standard output.
-fn print_issue(fmt: Option<&str>, issue: &Issue) -> Result<(), Box<Error>> {
+fn print_issue(fmt: Option<&str>, issue: &Issue) -> Result<(), Box<dyn Error>> {
     match fmt {
         Some(f) => println!("{}", display::format_issue(f, issue)?),
         None => println!("{} -- {}", issue, issue.url),

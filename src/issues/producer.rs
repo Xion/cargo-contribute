@@ -25,7 +25,7 @@ use super::crates_io::{self, Client as CratesIoClient};
 use super::github::pending_issues;
 
 
-type Stream<T> = Box<StdStream<Item=T, Error=Error>>;
+type Stream<T> = Box<dyn StdStream<Item=T, Error=Error>>;
 
 /// Type of the Stream returned by `SuggestedIssuesProducer`.
 pub type IssueStream = Stream<Issue>;
@@ -158,7 +158,7 @@ lazy_static! {
 
 fn repo_for_dependency<P: AsRef<Path>, C: Clone + Connect>(
     manifest_path: P, crates_io: &CratesIoClient<C>, dep: &Dependency
-) -> Box<Future<Item=Option<Repository>, Error=crates_io::Error>> {
+) -> Box<dyn Future<Item=Option<Repository>, Error=crates_io::Error>> {
     match *dep.location() {
         CrateLocation::Registry{ref version} => {
             // Check the local Cargo cache first for the dependent crate's manifest.
@@ -284,7 +284,7 @@ const ISSUE_LABELS: &[&str] = &[
 /// Provide suggested issues specifically from given GitHub repo.
 fn suggest_repo_issues<C: Clone + Connect>(
     github: &Github<C>, repo: Repository
-) -> Box<StdStream<Item=IssuesItem, Error=HubcapsError>> {
+) -> Box<dyn StdStream<Item=IssuesItem, Error=HubcapsError>> {
     let result = Box::new(
         // Filter pending issues to match one of the labels we're looking for.
         pending_issues(github, repo).filter(|ii| ii.labels.iter().any(|l| {

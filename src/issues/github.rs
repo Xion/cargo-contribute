@@ -14,7 +14,7 @@ use model::Repository;
 /// Return a stream of all open & unassigned issues in given GitHub repository.
 pub fn pending_issues<C: Clone + Connect>(
     github: &Github<C>, repo: Repository
-) -> Box<Stream<Item=IssuesItem, Error=Error>> {
+) -> Box<dyn Stream<Item=IssuesItem, Error=Error>> {
     let github = github.clone();
 
     debug!("Querying for issues in {:?}", repo);
