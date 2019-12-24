@@ -71,9 +71,7 @@ pub struct Issue {
 
 impl From<IssuesItem> for Issue {
     fn from(input: IssuesItem) -> Self {
-        // TODO: reverse order of tuple (again) when this PR is merged:
-        // https://github.com/softprops/hubcaps/pull/100
-        let (project, owner) = input.repo_tuple();
+        let (owner, project) = repo_tuple(&input);
         Issue{
             repo: Repository::new(owner, project),
             number: input.number,
@@ -83,6 +81,16 @@ impl From<IssuesItem> for Issue {
             comment_count: input.comments as usize,
         }
     }
+}
+/// A fixed version of hubcaps::IssuesItem::repo_tuple,
+/// because the original in 0.5.0 doesn't handle URLs GitHub returns
+/// (i.e. "https://api.github.com/repos/$OWNER/$REPO").
+fn repo_tuple(issues_item: &IssuesItem) -> (String, String) {
+    let url = Url::parse(&issues_item.repository_url).unwrap();
+    let segs = url.path_segments().map(|ps| ps.collect()).unwrap_or_else(Vec::new);
+    let owner = if segs.len() > 1 { segs[segs.len() - 2] } else { "" };
+    let project = if segs.len() > 0 { segs[segs.len() - 1] } else { "" };
+    (owner.to_owned(), project.to_owned())
 }
 
 impl fmt::Display for Issue {

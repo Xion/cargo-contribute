@@ -198,11 +198,18 @@ fn repo_for_dependency<P: AsRef<Path>, C: Clone + Connect>(
                         .or_else(|| p.homepage.as_ref().and_then(Repository::from_http_url))
                 })
         })),
-        CrateLocation::Git{ref url} => Box::new(future::ok(
-            GITHUB_GIT_HTTPS_URL_RE.captures(url)
-                .or_else(|| GITHUB_GIT_SSH_URL_RE.captures(url))
-                .map(|caps| Repository::new(&caps["owner"], &caps["name"]))
-        )),
+        CrateLocation::Git{ref url} => {
+            trace!("Trying to parse Git URL as GitHub one: {}", url);
+            Box::new(future::ok(
+                GITHUB_GIT_HTTPS_URL_RE.captures(url)
+                    .or_else(|| GITHUB_GIT_SSH_URL_RE.captures(url))
+                    .map(|caps| {
+                        let repo = Repository::new(&caps["owner"], &caps["name"]);
+                        debug!("Git URL {} recognized as repo: {}", url, repo);
+                        repo
+                    })
+            ))
+        },
     }
 }
 
