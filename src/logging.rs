@@ -90,7 +90,7 @@ pub fn init(verbosity: isize) -> Result<(), SetLoggerError> {
     // Initialize the logger, possibly logging the excessive verbosity option.
     let env_logger_drain = builder.build();
     let logger = slog::Logger::root(env_logger_drain.fuse(), o!());
-    try!(slog_stdlog::set_logger(logger));
+    slog_stdlog::set_logger(logger)?;
     if excessive {
         warn!("-v/-q flag passed too many times, logging level {:?} assumed", level);
     }
@@ -142,7 +142,7 @@ impl slog_stream::Format for LogFormat {
             format!("{}: {}\n", level, record.msg())
         };
 
-        try!(output.write_all(msg.as_bytes()));
+        output.write_all(msg.as_bytes())?;
         Ok(())
     }
 }

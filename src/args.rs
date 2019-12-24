@@ -39,7 +39,7 @@ pub fn parse_from_argv<I, T>(argv: I) -> Result<Options, ArgsError>
     }
 
     let parser = create_parser();
-    let matches = try!(parser.get_matches_from_safe(argv));
+    let matches = parser.get_matches_from_safe(argv)?;
     Options::try_from(matches)
 }
 
