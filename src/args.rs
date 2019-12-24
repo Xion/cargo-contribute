@@ -135,6 +135,7 @@ const OPT_VERBOSE: &str = "verbose";
 const OPT_QUIET: &str = "quiet";
 
 /// Create the parser for application's command line.
+#[allow(deprecated)]  // For crate_authors!, remove when clap fixes (prolly in 2.34).
 fn create_parser<'p>() -> Parser<'p> {
     let mut parser = Parser::new(*NAME);
     if let Some(version) = *VERSION {
