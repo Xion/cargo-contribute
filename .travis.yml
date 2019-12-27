@@ -3,8 +3,10 @@ language: rust
 os:
   - linux
 rust:
-  - stable
-  - beta
+  # - stable
+  # - beta
+  # TODO: enable stable & beta by migrating to 2018 edition
+  - 1.39
   - nightly
 
 matrix:
